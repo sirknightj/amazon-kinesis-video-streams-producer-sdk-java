@@ -110,7 +110,8 @@ public class ImageFileMediaSource implements MediaSource {
                 new Tag[] {
                         new Tag("device", "Test Device"),
                         new Tag("stream", "Test Stream") },
-                NAL_ADAPTATION_FLAG_NONE);
+                NAL_ADAPTATION_FLAG_NONE,
+                imageFileMediaSourceConfiguration.isAllowStreamCreation());
     }
 
     @Override

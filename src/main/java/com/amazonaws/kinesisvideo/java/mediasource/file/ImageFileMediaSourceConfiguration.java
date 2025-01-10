@@ -13,6 +13,7 @@ public class ImageFileMediaSourceConfiguration implements MediaSourceConfigurati
     private final int startFileIndex;
     private final int endFileIndex;
     private final String contentType;
+    private final boolean allowStreamCreation;
 
     public ImageFileMediaSourceConfiguration(final Builder builder) {
         this.fps = builder.fps;
@@ -21,6 +22,7 @@ public class ImageFileMediaSourceConfiguration implements MediaSourceConfigurati
         this.startFileIndex = builder.startFileIndex;
         this.endFileIndex = builder.endFileIndex;
         this.contentType = builder.contentType;
+        this.allowStreamCreation = builder.allowStreamCreation;
     }
 
     public int getFps() {
@@ -57,13 +59,19 @@ public class ImageFileMediaSourceConfiguration implements MediaSourceConfigurati
         return null;
     }
 
+    public boolean isAllowStreamCreation() {
+        return allowStreamCreation;
+    }
+
     public static class Builder implements MediaSourceConfiguration.Builder<ImageFileMediaSourceConfiguration> {
+
         private int fps;
         private String dir;
         private String filenameFormat;
         private int startFileIndex;
         private int endFileIndex;
         private String contentType = VIDEO_CONTENT_TYPE;
+        private boolean allowStreamCreation;
 
         public Builder fps(final int fps) {
             this.fps = fps;
@@ -95,6 +103,11 @@ public class ImageFileMediaSourceConfiguration implements MediaSourceConfigurati
 
         public Builder contentType(final String contentType) {
             this.contentType = contentType;
+            return this;
+        }
+
+        public Builder allowStreamCreation(final Boolean allowStreamCreation) {
+            this.allowStreamCreation = allowStreamCreation;
             return this;
         }
 

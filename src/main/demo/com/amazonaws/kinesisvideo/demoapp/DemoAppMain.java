@@ -74,6 +74,7 @@ public final class DemoAppMain {
                         .startFileIndex(START_FILE_INDEX)
                         .endFileIndex(END_FILE_INDEX)
                         //.contentType("video/hevc") // for h265
+                        .allowStreamCreation(false)
                         .build();
         final ImageFileMediaSource mediaSource = new ImageFileMediaSource(STREAM_NAME);
         mediaSource.configure(configuration);
@@ -93,6 +94,7 @@ public final class DemoAppMain {
                         .withRetentionPeriodInHours(RETENTION_ONE_HOUR)
                         .withAbsoluteTimecode(ABSOLUTE_TIMECODES)
                         .withTrackInfoList(DemoTrackInfos.createTrackInfoList())
+                        .withAllowStreamCreation(false)
                         .build();
         final AudioVideoFileMediaSource mediaSource = new AudioVideoFileMediaSource(STREAM_NAME);
         mediaSource.configure(configuration);

@@ -168,6 +168,7 @@ public class StreamInfo {
     private final UUID mSegmentUuid;
     private final FrameOrderMode mFrameOrderMode;
     private final StorePressurePolicy mStorePressurePolicy;
+    private final boolean mAllowStreamCreation;
 
     /**
      * Generates a track name from a content type
@@ -237,14 +238,14 @@ public class StreamInfo {
                       final long connectionStalenessDuration, final long timecodeScale, final boolean recalculateMetrics,
                       @Nullable final byte[] codecPrivateData,
                       @Nullable final Tag[] tags,
-                      @Nonnull final NalAdaptationFlags nalAdaptationFlags) {
+                      @Nonnull final NalAdaptationFlags nalAdaptationFlags, final boolean allowStreamCreation) {
         this(version, name, streamingType, contentType, kmsKeyId, retentionPeriod, adaptive, maxLatency,
                 fragmentDuration, keyFrameFragmentation, frameTimecodes, absoluteFragmentTimes, fragmentAcks,
                 recoverOnError, avgBandwidthBps, frameRate, bufferDuration, replayDuration,
                 connectionStalenessDuration, timecodeScale, recalculateMetrics, tags,
                 nalAdaptationFlags,
                 null,
-                new TrackInfo[] {new TrackInfo(DEFAULT_TRACK_ID, codecId, trackName, codecPrivateData, VIDEO)});
+                new TrackInfo[] {new TrackInfo(DEFAULT_TRACK_ID, codecId, trackName, codecPrivateData, VIDEO)}, allowStreamCreation);
     }
 
     public StreamInfo(final int version, @Nullable final String name, @Nonnull final StreamingType streamingType,
@@ -257,7 +258,7 @@ public class StreamInfo {
                       final boolean recalculateMetrics, @Nullable final Tag[] tags,
                       @Nonnull final NalAdaptationFlags nalAdaptationFlags,
                       @Nullable final UUID segmentUuid,
-                      @Nonnull final TrackInfo[] trackInfoList) {
+                      @Nonnull final TrackInfo[] trackInfoList, final boolean allowStreamCreation) {
         this(version, name, streamingType, contentType, kmsKeyId, retentionPeriod, adaptive, maxLatency,
                 fragmentDuration, keyFrameFragmentation, frameTimecodes, absoluteFragmentTimes, fragmentAcks,
                 recoverOnError, avgBandwidthBps, frameRate, bufferDuration, replayDuration,
@@ -265,7 +266,7 @@ public class StreamInfo {
                 nalAdaptationFlags,
                 segmentUuid,
                 trackInfoList,
-                fixUpFrameOrderMode(trackInfoList));
+                fixUpFrameOrderMode(trackInfoList), allowStreamCreation);
     }
 
     private static FrameOrderMode fixUpFrameOrderMode(TrackInfo[] trackInfos) {
@@ -290,13 +291,13 @@ public class StreamInfo {
                       @Nonnull final NalAdaptationFlags nalAdaptationFlags,
                       @Nullable final UUID segmentUuid,
                       @Nonnull final TrackInfo[] trackInfoList,
-                      FrameOrderMode frameOrderMode) {
+                      FrameOrderMode frameOrderMode, final boolean allowStreamCreation) {
         this(version, name, streamingType, contentType, kmsKeyId, retentionPeriod, adaptive, maxLatency,
                 fragmentDuration, keyFrameFragmentation, frameTimecodes, absoluteFragmentTimes, fragmentAcks,
                 recoverOnError, avgBandwidthBps, frameRate, bufferDuration, replayDuration,
                 connectionStalenessDuration, timecodeScale, recalculateMetrics, tags,
                 nalAdaptationFlags, segmentUuid, trackInfoList, frameOrderMode,
-                StorePressurePolicy.CONTENT_STORE_PRESSURE_POLICY_DROP_TAIL_ITEM);
+                StorePressurePolicy.CONTENT_STORE_PRESSURE_POLICY_DROP_TAIL_ITEM, allowStreamCreation);
     }
 
     public StreamInfo(final int version, @Nullable final String name, @Nonnull final StreamingType streamingType,
@@ -310,7 +311,7 @@ public class StreamInfo {
                       @Nonnull final NalAdaptationFlags nalAdaptationFlags,
                       @Nullable final UUID segmentUuid,
                       @Nonnull final TrackInfo[] trackInfoList,
-                      FrameOrderMode frameOrderMode, StorePressurePolicy storePressurePolicy) {
+                      FrameOrderMode frameOrderMode, StorePressurePolicy storePressurePolicy, final boolean allowStreamCreation) {
         mVersion = version;
         mName = name;
         mStreamingType = streamingType;
@@ -338,6 +339,7 @@ public class StreamInfo {
         mTrackInfoList = trackInfoList;
         mFrameOrderMode = frameOrderMode;
         mStorePressurePolicy = storePressurePolicy;
+        mAllowStreamCreation = allowStreamCreation;
     }
 
     public int getVersion() {
@@ -519,5 +521,9 @@ public class StreamInfo {
 
     public int getStorePressurePolicy() {
         return mStorePressurePolicy.getIntValue();
+    }
+
+    public boolean isAllowStreamCreation() {
+        return mAllowStreamCreation;
     }
 }

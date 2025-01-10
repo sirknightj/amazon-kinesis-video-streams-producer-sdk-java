@@ -307,7 +307,7 @@ public class NativeKinesisVideoProducerJni implements KinesisVideoProducer {
     /**
      * Creates an Kinesis Video stream
      * @param streamInfo      Stream information {@link StreamInfo} object
-     * @param streamCallbacks Optional stream callnbacks {@link StreamCallbacks}
+     * @param streamCallbacks Optional stream callbacks {@link StreamCallbacks}
      * @return Newly create Kinesis Video stream
      * @throws ProducerException
      */
@@ -337,7 +337,7 @@ public class NativeKinesisVideoProducerJni implements KinesisVideoProducer {
     }
 
     /**
-     * Creates an Kinesis Video stream sycnronously
+     * Creates an Kinesis Video stream synchronously
      * @param streamInfo      Stream information {@link StreamInfo} object
      * @param streamCallbacks Optional stream callnbacks {@link StreamCallbacks}
      * @return Newly created Kinesis Video stream
@@ -1282,7 +1282,7 @@ public class NativeKinesisVideoProducerJni implements KinesisVideoProducer {
 
     /**
      * Creates a new Kinesis Video stream native component
-     *
+     * @param clientHandle Client handle
      * @param streamInfo
      *         Instance of {@link StreamInfo} object
      * @return A newly created stream object handle

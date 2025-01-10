@@ -32,6 +32,7 @@ public class MultiTrackMediaSourceConfiguration implements MediaSourceConfigurat
         protected String contentType = null;
         protected TrackInfo[] trackInfoList;
         protected boolean absoluteTimecode = ABSOLUTE_TIMECODES;
+        protected boolean allowStreamCreation;
 
         private StreamInfo.NalAdaptationFlags nalAdaptationFlag = NAL_ADAPTATION_FLAG_NONE;
 
@@ -39,7 +40,6 @@ public class MultiTrackMediaSourceConfiguration implements MediaSourceConfigurat
             this.absoluteTimecode = absoluteTimecode;
             return (T) this;
         }
-
         public T withFps(final int fps) {
             this.fps = fps;
             return (T) this;
@@ -94,6 +94,11 @@ public class MultiTrackMediaSourceConfiguration implements MediaSourceConfigurat
         public MultiTrackMediaSourceConfiguration build() {
             return new MultiTrackMediaSourceConfiguration(this);
         }
+
+        public T withAllowStreamCreation(final boolean allowStreamCreation) {
+            this.allowStreamCreation = allowStreamCreation;
+            return (T) this;
+        }
     }
 
     private final Builder mBuilder;
@@ -146,6 +151,10 @@ public class MultiTrackMediaSourceConfiguration implements MediaSourceConfigurat
         return mBuilder.absoluteTimecode;
     }
 
+    public boolean isAllowStreamCreation() {
+        return mBuilder.allowStreamCreation;
+    }
+
     @Override
     public String getMediaSourceType() {
         return MEDIA_SOURCE_TYPE;
@@ -155,4 +164,6 @@ public class MultiTrackMediaSourceConfiguration implements MediaSourceConfigurat
     public String getMediaSourceDescription() {
         return MEDIA_SOURCE_DESCRIPTION;
     }
+
+
 }
