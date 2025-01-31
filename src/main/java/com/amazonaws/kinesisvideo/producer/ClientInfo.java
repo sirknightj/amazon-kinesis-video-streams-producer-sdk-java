@@ -11,7 +11,7 @@ public class ClientInfo {
     /**
      * Current version for the structure as defined in the native code
      */
-    public static final int CLIENT_INFO_CURRENT_VERSION = 2;
+    public static final int CLIENT_INFO_CURRENT_VERSION = 3;
     public static final int DEFAULT_LOG_LEVEL = 4;
 
     public static enum AutomaticStreamingFlags {

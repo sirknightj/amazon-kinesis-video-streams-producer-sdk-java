@@ -16,11 +16,11 @@ import static com.amazonaws.kinesisvideo.util.StreamInfoConstants.DEFAULT_TRACK_
 
 /**
  * Stream information class.
- *
+ * <p>
  * NOTE: This should follow the structure defined in /client/Include.h
  * StreamCaps in https://github.com/awslabs/amazon-kinesis-video-streams-producer-sdk-cpp/blob/master/kinesis-video-pic/src/client/include/com/amazonaws/kinesis/video/client/Include.h
- *
- *
+ * <p>
+ * <p>
  * NOTE: Suppressing Findbug to eliminate unnecessary mem copy.
  */
 @SuppressFBWarnings("EI_EXPOSE_REP")
@@ -29,7 +29,7 @@ public class StreamInfo {
      * StreamInfo structure current version.
      * IMPORTANT: Must be kept in sync with the native counterpart.
      */
-    public static final int STREAM_INFO_CURRENT_VERSION = 2;
+    public static final int STREAM_INFO_CURRENT_VERSION = 3;
 
     /**
      * Streaming types that must correspond to the native counterparts

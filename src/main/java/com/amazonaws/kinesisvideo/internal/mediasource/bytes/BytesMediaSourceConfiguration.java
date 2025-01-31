@@ -26,6 +26,11 @@ public class BytesMediaSourceConfiguration implements MediaSourceConfiguration {
             return this;
         }
 
+        public Builder withAllowStreamCreation(final Boolean allowStreamCreation) {
+            this.allowStreamCreation = allowStreamCreation;
+            return this;
+        }
+
         @Override
         public BytesMediaSourceConfiguration build() {
             return new BytesMediaSourceConfiguration(this);

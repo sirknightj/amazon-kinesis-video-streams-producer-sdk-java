@@ -90,14 +90,14 @@ public class MultiTrackMediaSourceConfiguration implements MediaSourceConfigurat
             return (T) this;
         }
 
-        @Override
-        public MultiTrackMediaSourceConfiguration build() {
-            return new MultiTrackMediaSourceConfiguration(this);
-        }
-
         public T withAllowStreamCreation(final boolean allowStreamCreation) {
             this.allowStreamCreation = allowStreamCreation;
             return (T) this;
+        }
+
+        @Override
+        public MultiTrackMediaSourceConfiguration build() {
+            return new MultiTrackMediaSourceConfiguration(this);
         }
     }
 
