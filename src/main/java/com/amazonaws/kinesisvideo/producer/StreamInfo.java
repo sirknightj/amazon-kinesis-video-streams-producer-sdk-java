@@ -29,7 +29,8 @@ public class StreamInfo {
      * StreamInfo structure current version.
      * IMPORTANT: Must be kept in sync with the native counterpart.
      */
-    public static final int STREAM_INFO_CURRENT_VERSION = 3;
+    //TODO:  Update version along with native library builds
+    public static final int STREAM_INFO_CURRENT_VERSION = 2;
 
     /**
      * Streaming types that must correspond to the native counterparts
