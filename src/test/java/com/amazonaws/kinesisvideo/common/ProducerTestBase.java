@@ -69,6 +69,8 @@ public class ProducerTestBase {
     protected boolean bufferDurationPressure_;
     protected boolean storageOverflow_;
     protected boolean bufferingAckInSequence_;
+    protected boolean allowStreamCreation;
+
     protected long errorStatus_;
     protected int latencyPressureCount_;
     protected HashMap<Long, Long> previousBufferingAckTimestamp_ = new HashMap<>();
@@ -143,13 +145,13 @@ public class ProducerTestBase {
         DefaultServiceCallbacksImpl defaultServiceCallbacks = new DefaultServiceCallbacksImpl(log, executor,
                 configuration, serviceClient);
         kinesisVideoClient = new NativeKinesisVideoClient(log,
-                    authCallbacks,
-                    storageCallbacks,
-                    defaultServiceCallbacks,
-                    streamCallbacks);
+                authCallbacks,
+                storageCallbacks,
+                defaultServiceCallbacks,
+                streamCallbacks);
         try {
             kinesisVideoProducer = kinesisVideoClient.initializeNewKinesisVideoProducer(deviceInfo);
-        } catch(Exception e) {
+        } catch (Exception e) {
             e.printStackTrace();
             fail();
         }
@@ -158,14 +160,15 @@ public class ProducerTestBase {
     /**
      * This method is used to create a stream with the specified information using the producer created as a part of
      * the createProducer method
-     * @param streamName the name of the stream to be created
-     * @param streamingType the type of the stream - realtime, offline
-     * @param maxLatency the maxLatency for the streamInfo
+     *
+     * @param streamName     the name of the stream to be created
+     * @param streamingType  the type of the stream - realtime, offline
+     * @param maxLatency     the maxLatency for the streamInfo
      * @param bufferDuration the bufferDuration for the streamInfo
      * @return KinesisVideoProducerStream the created stream
      */
     protected KinesisVideoProducerStream createTestStream(String streamName, StreamInfo.StreamingType streamingType,
-                                                       long maxLatency, long bufferDuration) {
+                                                          long maxLatency, long bufferDuration) {
         KinesisVideoProducerStream kinesisVideoProducerStream = null;
         final byte[] AVCC_EXTRA_DATA = {
                 (byte) 0x01, (byte) 0x42, (byte) 0x00, (byte) 0x1E, (byte) 0xFF, (byte) 0xE1, (byte) 0x00, (byte) 0x22,
@@ -176,7 +179,8 @@ public class ProducerTestBase {
                 (byte) 0x88, (byte) 0x46, (byte) 0xE0, (byte) 0x01, (byte) 0x00, (byte) 0x04, (byte) 0x28, (byte) 0xCE,
                 (byte) 0x1F, (byte) 0x20};
 
-        StreamInfo streamInfo = new StreamInfo(VERSION_TWO,
+        StreamInfo streamInfo = new StreamInfo(
+                StreamInfo.STREAM_INFO_CURRENT_VERSION,
                 streamName,
                 streamingType,
                 "video/h264",
@@ -200,15 +204,17 @@ public class ProducerTestBase {
                 DEFAULT_TIMESCALE,
                 RECALCULATE_METRICS,
                 AVCC_EXTRA_DATA,
-                new Tag[] {
+                new Tag[]{
                         new Tag("device", "Test Device"),
-                        new Tag("stream", "Test Stream") },
-                NAL_ADAPTATION_FLAG_NONE);
+                        new Tag("stream", "Test Stream")},
+                NAL_ADAPTATION_FLAG_NONE,
+                allowStreamCreation
+        );
 
-        try{
-            kinesisVideoProducerStream =  kinesisVideoProducer.createStreamSync(streamInfo, streamCallbacks);
+        try {
+            kinesisVideoProducerStream = kinesisVideoProducer.createStreamSync(streamInfo, streamCallbacks);
 
-        } catch(Exception e) {
+        } catch (Exception e) {
             e.printStackTrace();
             fail();
         }
@@ -217,12 +223,13 @@ public class ProducerTestBase {
 
     /**
      * This method is used to free the specified kinesisVideoProducerStream from the producer
+     *
      * @param kinesisVideoProducerStream the stream to be freed
      */
     protected void freeTestStream(KinesisVideoProducerStream kinesisVideoProducerStream) {
         try {
             kinesisVideoProducer.freeStream(kinesisVideoProducerStream);
-        } catch(Exception e) {
+        } catch (Exception e) {
             e.printStackTrace();
             fail();
         }
@@ -234,7 +241,7 @@ public class ProducerTestBase {
     protected void freeStreams() {
         try {
             kinesisVideoProducer.freeStreams();
-        } catch(ProducerException e) {
+        } catch (ProducerException e) {
             e.printStackTrace();
             fail();
         }
@@ -243,11 +250,11 @@ public class ProducerTestBase {
     /**
      * This method is used to cache stream-info, stream-endpoint and credentials-provider for a stream. It can be called
      * for an existing stream only. It cannot be used to create a stream
-     * @param cacheAll boolean set to true if all -
-     *                 credential-provider, stream-info and stream-endpoint need to be cached
-     *                 set to false if only stream-endpoint needs to be cached
-     * @param testStreamName String name of the stream for which the caching has to take place
      *
+     * @param cacheAll       boolean set to true if all -
+     *                       credential-provider, stream-info and stream-endpoint need to be cached
+     *                       set to false if only stream-endpoint needs to be cached
+     * @param testStreamName String name of the stream for which the caching has to take place
      */
     protected void cacheStreamingInfo(boolean cacheAll, String testStreamName) {
 
@@ -264,7 +271,7 @@ public class ProducerTestBase {
                 .withCredentials(awsCredentialsProvider)
                 .build();
 
-        if(cacheAll) {
+        if (cacheAll) {
             cacheServiceCallbacks.addCredentialsProviderToCache(testStreamName, awsCredentialsProvider);
             DescribeStreamResult streamInfo = kvsClient.describeStream(new DescribeStreamRequest()
                     .withStreamName(testStreamName));
