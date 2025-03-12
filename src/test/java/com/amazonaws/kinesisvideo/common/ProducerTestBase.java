@@ -1,6 +1,7 @@
 package com.amazonaws.kinesisvideo.common;
 
 import java.util.HashMap;
+import java.util.Optional;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import static org.junit.Assert.fail;
@@ -179,9 +180,11 @@ public class ProducerTestBase {
                 (byte) 0x88, (byte) 0x46, (byte) 0xE0, (byte) 0x01, (byte) 0x00, (byte) 0x04, (byte) 0x28, (byte) 0xCE,
                 (byte) 0x1F, (byte) 0x20};
 
+        final String prefix = Optional.ofNullable(System.getenv("TEST_STREAMS_PREFIX")).orElse("");
+
         StreamInfo streamInfo = new StreamInfo(
                 StreamInfo.STREAM_INFO_CURRENT_VERSION,
-                streamName,
+                prefix + streamName,
                 streamingType,
                 "video/h264",
                 NO_KMS_KEY_ID,

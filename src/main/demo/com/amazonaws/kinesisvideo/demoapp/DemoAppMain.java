@@ -1,5 +1,6 @@
 package com.amazonaws.kinesisvideo.demoapp;
 
+import com.amazonaws.kinesisvideo.client.IPVersionFilter;
 import com.amazonaws.kinesisvideo.client.KinesisVideoClient;
 import com.amazonaws.kinesisvideo.demoapp.contants.DemoTrackInfos;
 import com.amazonaws.kinesisvideo.internal.client.mediasource.MediaSource;
@@ -11,6 +12,7 @@ import com.amazonaws.kinesisvideo.java.mediasource.file.AudioVideoFileMediaSourc
 import com.amazonaws.kinesisvideo.java.mediasource.file.ImageFileMediaSource;
 import com.amazonaws.kinesisvideo.java.mediasource.file.ImageFileMediaSourceConfiguration;
 import com.amazonaws.regions.Regions;
+import org.apache.logging.log4j.core.config.Configurator;
 
 import static com.amazonaws.kinesisvideo.util.StreamInfoConstants.ABSOLUTE_TIMECODES;
 
@@ -36,12 +38,16 @@ public final class DemoAppMain {
     }
 
     public static void main(final String[] args) {
+        Configurator.initialize(null, "./log4j2.xml");
+
         try {
             // create Kinesis Video high level client
             final KinesisVideoClient kinesisVideoClient = KinesisVideoJavaClientFactory
                     .createKinesisVideoClient(
                             Regions.US_WEST_2,
-                            AuthHelper.getSystemPropertiesCredentialsProvider());
+                            AuthHelper.getSystemPropertiesCredentialsProvider(),
+                            null,
+                            true, IPVersionFilter.IPV4_AND_IPV6);
 
             // create a media source. this class produces the data and pushes it into
             // Kinesis Video Producer lower level components

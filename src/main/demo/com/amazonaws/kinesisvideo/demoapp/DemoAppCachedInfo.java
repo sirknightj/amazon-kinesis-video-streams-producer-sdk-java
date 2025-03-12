@@ -1,6 +1,7 @@
 package com.amazonaws.kinesisvideo.demoapp;
 
 import com.amazonaws.auth.AWSCredentialsProvider;
+import com.amazonaws.kinesisvideo.client.IPVersionFilter;
 import com.amazonaws.kinesisvideo.client.KinesisVideoClient;
 import com.amazonaws.kinesisvideo.client.KinesisVideoClientConfiguration;
 import org.apache.logging.log4j.LogManager;
@@ -61,6 +62,7 @@ public final class DemoAppCachedInfo {
                     .withRegion(Regions.US_WEST_2.getName())
                     .withCredentialsProvider(new JavaCredentialsProviderImpl(awsCredentialsProvider))
                     .withStorageCallbacks(new DefaultStorageCallbacks())
+                    .withIPVersionFilter(IPVersionFilter.IPV4_AND_IPV6)
                     .build();
 
             final Logger log = LogManager.getLogger(DemoAppCachedInfo.class);

@@ -1,5 +1,7 @@
 package com.amazonaws.kinesisvideo.http;
 
+import com.amazonaws.kinesisvideo.client.IPVersionFilter;
+import com.amazonaws.kinesisvideo.client.KinesisVideoClientConfigurationDefaults;
 import com.amazonaws.kinesisvideo.common.function.Consumer;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -12,9 +14,9 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
-import java.net.Socket;
-import java.net.URI;
+import java.net.*;
 import java.nio.charset.Charset;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
@@ -66,7 +68,7 @@ public final class ParallelSimpleHttpClient implements HttpClient {
     }
 
     private void initSocket() throws IOException {
-        mSocket = new SocketFactory().createSocket(mBuilder.mUri);
+        mSocket = new SocketFactory().createSocket(mBuilder.mUri, mBuilder.mIPVersionFilter);
         if (mBuilder.mTimeout != null) {
             mSocket.setSoTimeout(mBuilder.mTimeout);
         }
@@ -214,6 +216,7 @@ public final class ParallelSimpleHttpClient implements HttpClient {
         private Consumer<OutputStream> mSender;
         private Consumer<InputStream> mReceiver;
         private Integer mTimeout;
+        private IPVersionFilter mIPVersionFilter;
         private Consumer<Exception> mCompletion;
         // TODO: Set to correct output channel
 
@@ -221,6 +224,7 @@ public final class ParallelSimpleHttpClient implements HttpClient {
             mHeaders = new HashMap<String, String>();
             mSender = NO_OP_SENDER;
             mCompletion = NO_OP_COMPLETION;
+            mIPVersionFilter = KinesisVideoClientConfigurationDefaults.BOTH_IPV4_AND_IPV6;
         }
 
         public Builder uri(final URI uri) {
@@ -259,6 +263,11 @@ public final class ParallelSimpleHttpClient implements HttpClient {
 
         public Builder setTimeout(final Integer timeout) {
             mTimeout = timeout;
+            return this;
+        }
+
+        public Builder setIPVersionFilter(final IPVersionFilter ipVersionFilter) {
+            mIPVersionFilter = ipVersionFilter;
             return this;
         }
 

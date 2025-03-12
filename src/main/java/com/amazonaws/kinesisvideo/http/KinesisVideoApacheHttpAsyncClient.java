@@ -3,24 +3,37 @@ package com.amazonaws.kinesisvideo.http;
 import static com.amazonaws.kinesisvideo.common.preconditions.Preconditions.checkNotNull;
 
 import java.io.IOException;
+import java.net.SocketAddress;
+import java.net.UnknownHostException;
 import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
+import java.util.Arrays;
 import java.util.Map;
 
-import org.apache.http.HttpEntity;
-import org.apache.http.HttpResponse;
+import org.apache.http.*;
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.concurrent.FutureCallback;
+import org.apache.http.conn.routing.HttpRoute;
+import org.apache.http.conn.routing.HttpRoutePlanner;
 import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.nio.client.CloseableHttpAsyncClient;
 import org.apache.http.impl.nio.client.HttpAsyncClientBuilder;
+import org.apache.http.impl.nio.conn.PoolingNHttpClientConnectionManager;
+import org.apache.http.impl.nio.pool.BasicNIOConnPool;
+import org.apache.http.impl.nio.reactor.DefaultConnectingIOReactor;
+import org.apache.http.impl.nio.reactor.IOReactorConfig;
 import org.apache.http.nio.client.methods.HttpAsyncMethods;
 import org.apache.http.nio.conn.ssl.SSLIOSessionStrategy;
+import org.apache.http.nio.pool.AbstractNIOConnPool;
 import org.apache.http.nio.protocol.HttpAsyncRequestProducer;
 import org.apache.http.nio.protocol.HttpAsyncResponseConsumer;
+import org.apache.http.nio.reactor.ConnectingIOReactor;
+import org.apache.http.nio.reactor.IOReactor;
+import org.apache.http.nio.reactor.IOReactorException;
+import org.apache.http.protocol.HttpContext;
 
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.X509ExtendedTrustManager;
@@ -56,6 +69,7 @@ public final class KinesisVideoApacheHttpAsyncClient extends HttpClientBase {
     }
 
     private CloseableHttpAsyncClient buildHttpAsyncClient() {
+        System.out.println("BUILD HTTP ASYNC CLIENT");
         try {
             final SSLContext sslContext = SSLContext.getInstance("TLSv1.2");
             sslContext.init(null, new X509ExtendedTrustManager[] {
@@ -63,12 +77,26 @@ public final class KinesisVideoApacheHttpAsyncClient extends HttpClientBase {
 
             final SSLIOSessionStrategy sslSessionStrategy = new SSLIOSessionStrategy(sslContext);
 
+            final HttpRoutePlanner httpRoutePlanner = (httpHost, httpRequest, httpContext) -> {
+                try {
+                    return Arrays.stream(new KvsFilteredDnsResolver(mBuilder.mIPVersionFilter)
+                                    .resolve(httpHost.getHostName()))
+                            .findAny()
+                            .map(inetAddress -> new HttpHost(inetAddress.getHostAddress(), httpHost.getPort(), httpHost.getSchemeName()))
+                            .map(HttpRoute::new)
+                            .orElseThrow(UnknownHostException::new);
+                } catch (final UnknownHostException e) {
+                    throw new HttpException("Unable to resolve the host " + httpHost, e);
+                }
+            };
+
             return HttpAsyncClientBuilder.create()
                     .setSSLStrategy(sslSessionStrategy)
                     .setDefaultRequestConfig(RequestConfig.custom()
                             .setConnectTimeout(mBuilder.mConnectionTimeoutInMillis)
                             .setSocketTimeout(mBuilder.mSocketTimeoutInMillis)
                             .build())
+                    .setRoutePlanner(httpRoutePlanner)
                     .build();
         } catch (final KeyManagementException e) {
             throw new RuntimeException("Exception while building Apache http client", e);
