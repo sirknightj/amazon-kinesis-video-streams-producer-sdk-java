@@ -170,7 +170,7 @@ jobs:
           if [ ${{ matrix.os }} == 'macos-latest' ]; then
             echo "JNI_FOLDER=$(pwd)/jni" >> $GITHUB_ENV
           else
-            echo "JNI_FOLDER$(pwd)/src/main/resources/lib/mac/" >> $GITHUB_ENV
+            echo "JNI_FOLDER=$(pwd)/src/main/resources/lib/mac/" >> $GITHUB_ENV
           fi
 
       - name: Build with Maven
