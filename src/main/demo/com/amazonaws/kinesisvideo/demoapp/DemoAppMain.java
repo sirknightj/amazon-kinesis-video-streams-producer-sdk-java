@@ -23,7 +23,7 @@ import static com.amazonaws.kinesisvideo.util.StreamInfoConstants.ABSOLUTE_TIMEC
  */
 public final class DemoAppMain {
     // Use a different stream name when testing audio/video sample
-    private static final String STREAM_NAME = System.getProperty("kvs-stream");
+    private static final String STREAM_NAME = Optional.ofNullable(System.getProperty("kvs-stream")).orElse("");
     private static final int FPS_25 = 25;
     private static final int RETENTION_ONE_HOUR = 1;
     private static final String IMAGE_DIR = "src/main/resources/data/h264/";
@@ -63,20 +63,7 @@ public final class DemoAppMain {
 
             // start streaming
             mediaSource.start();
-
-            final int durationSecs = Optional.ofNullable(System.getProperty("duration"))
-                    .map(Integer::parseInt)
-                    .orElse(10);
-            if (durationSecs > 0) {
-
-                Thread.sleep(durationSecs * 1000);
-                mediaSource.stop();
-                kinesisVideoClient.unregisterMediaSource(mediaSource);
-                kinesisVideoClient.free();
-            }
         } catch (final KinesisVideoException e) {
-            throw new RuntimeException(e);
-        } catch (final InterruptedException e) {
             throw new RuntimeException(e);
         }
     }

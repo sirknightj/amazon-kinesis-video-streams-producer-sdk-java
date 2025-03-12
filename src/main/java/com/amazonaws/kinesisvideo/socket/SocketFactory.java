@@ -40,7 +40,7 @@ public class SocketFactory {
     /**
      * Creates a socket for the given URI with an IP version filter.
      *
-     * @param uri            The URI to connect to.
+     * @param uri             The URI to connect to.
      * @param ipVersionFilter The filter to use for resolving the host IP.
      * @return A new {@link Socket} connected to the specified URI.
      * @throws RuntimeException If an error occurs while creating the socket.
@@ -94,8 +94,14 @@ public class SocketFactory {
      */
     private Socket createSslSocket(final InetAddress address, final int port) throws Exception {
         final SSLContext context = SSLContext.getInstance("TLSv1.2");
-        context.init(NO_KEY_MANAGERS, new X509ExtendedTrustManager[] {
-                new HostnameVerifyingX509ExtendedTrustManager(true)}, new SecureRandom());
+
+        // Skipping IP-based hostname verification to avoid unnecessary debug logs:
+        // e.g. "Certificate for <x.x.x.x> doesn't match any of the subject alternative names: [s-1234abcd.kinesisvideo.us-west-2.amazonaws.com]"
+        // The server certificate contains the hostname, not the raw IP address.
+        // Verifying against the IP is redundant in this case and causes misleading debug output.
+        context.init(NO_KEY_MANAGERS, new X509ExtendedTrustManager[]{
+                new HostnameVerifyingX509ExtendedTrustManager(true, true)},
+                new SecureRandom());
         return context.getSocketFactory().createSocket(address, port);
     }
 
@@ -123,8 +129,8 @@ public class SocketFactory {
     /**
      * Resolves the hostname of the given URI using an {@link IPVersionFilter}.
      *
-     * @param uri       The URI to resolve.
-     * @param ipFilter  The IP version filter.
+     * @param uri      The URI to resolve.
+     * @param ipFilter The IP version filter.
      * @return The resolved {@link InetAddress}.
      * @throws Exception If resolution fails.
      */
