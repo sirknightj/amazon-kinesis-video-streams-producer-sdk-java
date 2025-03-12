@@ -211,7 +211,7 @@ public class ProducerTestBase {
                         new Tag("device", "Test Device"),
                         new Tag("stream", "Test Stream")},
                 NAL_ADAPTATION_FLAG_NONE,
-                allowStreamCreation
+                true
         );
 
         try {
