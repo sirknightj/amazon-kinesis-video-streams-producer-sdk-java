@@ -41,7 +41,7 @@ jobs:
         if: ${{ runner.os == 'macOS' }}
         run: |
           brew install log4cplus
-#          brew unlink openssl
+          # brew unlink openssl
           
           export OPENSSL_ROOT_DIR=$(brew --prefix openssl)
           export OPENSSL_LIBRARIES=$(brew --prefix openssl)/lib
