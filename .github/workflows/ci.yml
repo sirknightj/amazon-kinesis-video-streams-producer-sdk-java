@@ -53,6 +53,11 @@ jobs:
           cd build
           cmake .. -DBUILD_DEPENDENCIES=OFF -DBUILD_JNI=ON
           make -j$(sysctl -n hw.cpu)
+          
+          # Verify the file is there
+          file libKinesisVideoProducerJNI.dylib
+          
+          echo "JNI_FOLDER=$(pwd)" >> $GITHUB_ENV 
 
       - name: Build with Maven
         run: mvn clean compile assembly:single
@@ -65,12 +70,14 @@ jobs:
 
       - name: Run tests
         run: |
+          JAVA_VERSION=$(java -version 2>&1 | awk -F '"' '/version/ {print $2}')
+          export TEST_STREAMS_PREFIX="producer-java-${RUNNER_OS}-java-${JAVA_VERSION}_"
           if [ "$RUNNER_OS" == "Linux" ]; then
             mvn clean test -DargLine="-Daws.accessKeyId=${AWS_ACCESS_KEY_ID} -Daws.secretKey=${AWS_SECRET_ACCESS_KEY} -Daws.sessionToken=${AWS_SESSION_TOKEN} -Djava.library.path=src/main/resources/lib/ubuntu/ -Dlog4j.configurationFile=log4j2.xml"
           elif [ "$RUNNER_OS" == "Windows" ]; then
             mvn clean test -DargLine="-Daws.accessKeyId=${AWS_ACCESS_KEY_ID} -Daws.secretKey=${AWS_SECRET_ACCESS_KEY} -Daws.sessionToken=${AWS_SESSION_TOKEN} -Djava.library.path=src/main/resources/lib/windows/ -Dlog4j.configurationFile=log4j2.xml"
           elif [ "$RUNNER_OS" == "macOS" ]; then
-            mvn clean test -DargLine="-Daws.accessKeyId=${AWS_ACCESS_KEY_ID} -Daws.secretKey=${AWS_SECRET_ACCESS_KEY} -Daws.sessionToken=${AWS_SESSION_TOKEN} -Djava.library.path=src/main/resources/lib/mac/ -Dlog4j.configurationFile=log4j2.xml"
+            mvn clean test -DargLine="-Daws.accessKeyId=${AWS_ACCESS_KEY_ID} -Daws.secretKey=${AWS_SECRET_ACCESS_KEY} -Daws.sessionToken=${AWS_SESSION_TOKEN} -Djava.library.path=${JNI_FOLDER} -Dlog4j.configurationFile=log4j2.xml"
           else
             echo "$RUNNER_OS not supported"
             exit 1
