@@ -15,6 +15,7 @@ jobs:
     strategy:
       matrix:
         os:
+          - macos-13
           - macos-latest
         java:
           - 11
@@ -38,9 +39,7 @@ jobs:
 
       - name: Build JNI (mac)
         if: ${{ runner.os == 'macOS' }}
-        run: |
-          brew install log4cplus
-          
+        run: |          
           export OPENSSL_ROOT_DIR=$(brew --prefix openssl)
           export OPENSSL_LIBRARIES=$(brew --prefix openssl)/lib
           export OPENSSL_INCLUDE_DIR=$(brew --prefix openssl)/include
@@ -67,6 +66,7 @@ jobs:
     strategy:
       matrix:
         os:
+          - macos-13
           - macos-latest
         java:
           - 11
@@ -130,6 +130,7 @@ jobs:
     strategy:
       matrix:
         os:
+          - macos-13
           - macos-latest
         java:
           - 11
@@ -164,7 +165,11 @@ jobs:
           path: jni/
 
       - name: Set JNI Folder Path
-        run: echo "JNI_FOLDER=$(pwd)/jni" >> $GITHUB_ENV
+        run: |
+          if [ ${{ matrix.os }} == 'macos-latest' ]; then
+            echo "JNI_FOLDER=$(pwd)/jni" >> $GITHUB_ENV
+          else
+            echo "$(pwd)/src/main/resources/lib/mac/"
 
       - name: Build with Maven
         run: mvn clean compile assembly:single
