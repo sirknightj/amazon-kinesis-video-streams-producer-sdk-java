@@ -25,7 +25,9 @@ import com.amazonaws.services.kinesisvideo.model.DescribeStreamResult;
 import com.amazonaws.services.kinesisvideo.model.GetDataEndpointRequest;
 import com.amazonaws.services.kinesisvideo.model.GetDataEndpointResult;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import org.apache.logging.log4j.core.config.Configurator;
 
+import java.util.Optional;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 
@@ -34,7 +36,7 @@ import java.util.concurrent.ScheduledExecutorService;
  */
 public final class DemoAppCachedInfo {
     // Use a different stream name when testing audio/video sample
-    private static final String STREAM_NAME = "my-stream-cached";
+    private static final String STREAM_NAME = Optional.ofNullable(System.getProperty("kvs-stream")).orElse("my-stream-cached");
     private static final int FPS_25 = 25;
     private static final int RETENTION_ONE_HOUR = 1;
     private static final String IMAGE_DIR = "src/main/resources/data/h264/";
@@ -54,6 +56,8 @@ public final class DemoAppCachedInfo {
     }
 
     public static void main(final String[] args) {
+        Configurator.initialize(null, "./log4j2.xml");
+
         try {
             final ScheduledExecutorService executor = Executors.newScheduledThreadPool(NUMBER_OF_THREADS_IN_POOL,
                     new ThreadFactoryBuilder().setNameFormat("KVS-JavaClientExecutor-%d").build());

@@ -11,14 +11,13 @@ on:
       - master
 
 jobs:
-  build:
+  build-jni:
     strategy:
       matrix:
         os:
           - macos-latest
         java:
           - 11
-
       fail-fast: false
 
     runs-on: ${{ matrix.os }}
@@ -41,7 +40,6 @@ jobs:
         if: ${{ runner.os == 'macOS' }}
         run: |
           brew install log4cplus
-          # brew unlink openssl
           
           export OPENSSL_ROOT_DIR=$(brew --prefix openssl)
           export OPENSSL_LIBRARIES=$(brew --prefix openssl)/lib
@@ -56,8 +54,61 @@ jobs:
           
           # Verify the file is there
           file libKinesisVideoProducerJNI.dylib
-          
-          echo "JNI_FOLDER=$(pwd)" >> $GITHUB_ENV 
+
+      - name: Upload JNI Library
+        uses: actions/upload-artifact@v4
+        with:
+          name: jni-library-${{ runner.os }}
+          path: amazon-kinesis-video-streams-producer-sdk-cpp/build/libKinesisVideoProducerJNI.dylib
+
+  run-unit-tests:
+    needs: build-jni
+    strategy:
+      matrix:
+        os:
+          - macos-latest
+        java:
+          - 11
+      fail-fast: false
+
+    env:
+      TEST_STREAMS_PREFIX: producer-java-${{ matrix.os }}-java-${{ matrix.java }}_
+
+    runs-on: ${{ matrix.os }}
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout the repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ matrix.java }}
+          distribution: 'adopt'
+          cache: maven
+
+      - name: Download JNI Library
+        uses: actions/download-artifact@v4
+        with:
+          name: jni-library-${{ runner.os }}
+          path: jni/
+
+      - name: Set JNI Folder Path
+        run: |
+          if [ "$RUNNER_OS" == "Linux" ]; then
+            echo "JNI_FOLDER=src/main/resources/lib/ubuntu/"
+          elif [ "$RUNNER_OS" == "Windows" ]; then
+            echo "JNI_FOLDER=src/main/resources/lib/windows/"
+          elif [ "$RUNNER_OS" == "macOS" ]; then
+            echo "JNI_FOLDER=$(pwd)/jni" >> $GITHUB_ENV
+          else
+            echo "$RUNNER_OS not supported"
+            exit 1
+          fi
+        shell: bash
 
       - name: Build with Maven
         run: mvn clean compile assembly:single
@@ -70,16 +121,90 @@ jobs:
 
       - name: Run tests
         run: |
-          JAVA_VERSION=$(java -version 2>&1 | awk -F '"' '/version/ {print $2}')
-          export TEST_STREAMS_PREFIX="producer-java-${RUNNER_OS}-java-${JAVA_VERSION}_"
-          if [ "$RUNNER_OS" == "Linux" ]; then
-            mvn clean test -DargLine="-Daws.accessKeyId=${AWS_ACCESS_KEY_ID} -Daws.secretKey=${AWS_SECRET_ACCESS_KEY} -Daws.sessionToken=${AWS_SESSION_TOKEN} -Djava.library.path=src/main/resources/lib/ubuntu/ -Dlog4j.configurationFile=log4j2.xml"
-          elif [ "$RUNNER_OS" == "Windows" ]; then
-            mvn clean test -DargLine="-Daws.accessKeyId=${AWS_ACCESS_KEY_ID} -Daws.secretKey=${AWS_SECRET_ACCESS_KEY} -Daws.sessionToken=${AWS_SESSION_TOKEN} -Djava.library.path=src/main/resources/lib/windows/ -Dlog4j.configurationFile=log4j2.xml"
-          elif [ "$RUNNER_OS" == "macOS" ]; then
-            mvn clean test -DargLine="-Daws.accessKeyId=${AWS_ACCESS_KEY_ID} -Daws.secretKey=${AWS_SECRET_ACCESS_KEY} -Daws.sessionToken=${AWS_SESSION_TOKEN} -Djava.library.path=${JNI_FOLDER} -Dlog4j.configurationFile=log4j2.xml"
-          else
-            echo "$RUNNER_OS not supported"
-            exit 1
-          fi
+          mvn clean test -DargLine="-Daws.accessKeyId=${AWS_ACCESS_KEY_ID} -Daws.secretKey=${AWS_SECRET_ACCESS_KEY} -Daws.sessionToken=${AWS_SESSION_TOKEN} -Djava.library.path=${JNI_FOLDER} -Dlog4j.configurationFile=log4j2.xml"
         shell: bash
+
+  run-samples:
+    needs: build-jni
+    strategy:
+      matrix:
+        os:
+          - macos-latest
+        java:
+          - 11
+        sample:
+          - DemoAppMain
+          - DemoAppCachedInfo
+      fail-fast: false
+
+    env:
+      STREAM_NAME: producer-java-${{ matrix.os }}-java-${{ matrix.java }}_${{ matrix.sample }}
+
+    runs-on: ${{ matrix.os }}
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout the repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ matrix.java }}
+          distribution: 'adopt'
+          cache: maven
+
+      - name: Download JNI Library
+        uses: actions/download-artifact@v4
+        with:
+          name: jni-library-${{ runner.os }}
+          path: jni/
+
+      - name: Set JNI Folder Path
+        run: echo "JNI_FOLDER=$(pwd)/jni" >> $GITHUB_ENV
+
+      - name: Create the stream
+        # This sample needs 2 pre-created streams: `${NAME}-account-1` and `${NAME}-account-2`
+        if: ${{ matrix.sample == 'DemoAppCachedInfo' }}
+        run: |
+          aws kinesisvideo create-stream \
+            --stream-name "$STREAM_NAME-account-1" \
+            --data-retention-in-hours 2 \
+            --region ${{ secrets.AWS_REGION }} \
+            --no-cli-pager || echo "Stream already exists, continuing..."
+          
+          aws kinesisvideo create-stream \
+            --stream-name "$STREAM_NAME-account-2" \
+            --data-retention-in-hours 2 \
+            --region ${{ secrets.AWS_REGION }} \
+            --no-cli-pager || echo "Stream already exists, continuing..."
+
+        shell: bash
+
+      - name: Build with Maven
+        run: mvn clean compile assembly:single
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Run the sample
+        run: |
+          java -classpath target/amazon-kinesis-video-streams-producer-sdk-java-1.12.2-jar-with-dependencies.jar \
+            -Daws.accessKeyId=${AWS_ACCESS_KEY_ID} \
+            -Daws.secretKey=${AWS_SECRET_ACCESS_KEY} \
+            -Daws.sessionToken=${AWS_SESSION_TOKEN} \
+            -Djava.library.path=${JNI_FOLDER} \
+            -Dkvs-stream=$STREAM_NAME \
+            com.amazonaws.kinesisvideo.demoapp.${{ matrix.sample }}
+
+          SAMPLE_PID=$!
+          echo "Sample process started with PID $SAMPLE_PID"
+          
+          sleep 30
+          echo "Stopping sample process..."
+          kill $SAMPLE_PID
