@@ -58,7 +58,7 @@ jobs:
       - name: Upload JNI Library
         uses: actions/upload-artifact@v4
         with:
-          name: jni-library-${{ runner.os }}
+          name: jni-library-${{ matrix.os }}
           path: amazon-kinesis-video-streams-producer-sdk-cpp/build/libKinesisVideoProducerJNI.dylib
           retention-days: 1
 
