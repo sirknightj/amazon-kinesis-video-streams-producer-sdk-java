@@ -60,6 +60,7 @@ jobs:
         with:
           name: jni-library-${{ runner.os }}
           path: amazon-kinesis-video-streams-producer-sdk-cpp/build/libKinesisVideoProducerJNI.dylib
+          retention-days: 1
 
   run-unit-tests:
     needs: build-jni
@@ -165,24 +166,6 @@ jobs:
       - name: Set JNI Folder Path
         run: echo "JNI_FOLDER=$(pwd)/jni" >> $GITHUB_ENV
 
-      - name: Create the stream
-        # This sample needs 2 pre-created streams: `${NAME}-account-1` and `${NAME}-account-2`
-        if: ${{ matrix.sample == 'DemoAppCachedInfo' }}
-        run: |
-          aws kinesisvideo create-stream \
-            --stream-name "$STREAM_NAME-account-1" \
-            --data-retention-in-hours 2 \
-            --region ${{ secrets.AWS_REGION }} \
-            --no-cli-pager || echo "Stream already exists, continuing..."
-          
-          aws kinesisvideo create-stream \
-            --stream-name "$STREAM_NAME-account-2" \
-            --data-retention-in-hours 2 \
-            --region ${{ secrets.AWS_REGION }} \
-            --no-cli-pager || echo "Stream already exists, continuing..."
-
-        shell: bash
-
       - name: Build with Maven
         run: mvn clean compile assembly:single
 
@@ -191,6 +174,36 @@ jobs:
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
           aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Create the stream (DemoAppCachedInfo)
+        # This sample needs a pre-created stream: `${NAME}`
+        if: ${{ matrix.sample == 'DemoAppMain' }}
+        run: |
+          aws kinesisvideo create-stream \
+            --stream-name "$STREAM_NAME" \
+            --data-retention-in-hours 2 \
+            --region ${{ secrets.AWS_REGION }} \
+            --no-cli-pager || echo "Stream already exists, continuing..."
+
+        shell: bash
+
+      - name: Create the stream (DemoAppCachedInfo)
+        # This sample needs 2 pre-created streams: `${NAME}-account-1` and `${NAME}-account-2`
+        if: ${{ matrix.sample == 'DemoAppCachedInfo' }}
+        run: |
+          aws kinesisvideo create-stream \
+            --stream-name "$STREAM_NAME-account-1" \
+            --data-retention-in-hours 2 \
+            --region ${{ secrets.AWS_REGION }} \
+            --no-cli-pager || echo "Stream already exists, continuing..."
+
+          aws kinesisvideo create-stream \
+            --stream-name "$STREAM_NAME-account-2" \
+            --data-retention-in-hours 2 \
+            --region ${{ secrets.AWS_REGION }} \
+            --no-cli-pager || echo "Stream already exists, continuing..."
+
+        shell: bash
 
       - name: Run the sample
         run: |
