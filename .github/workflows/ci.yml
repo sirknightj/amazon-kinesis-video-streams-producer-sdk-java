@@ -213,11 +213,12 @@ jobs:
             -Daws.sessionToken=${AWS_SESSION_TOKEN} \
             -Djava.library.path=${JNI_FOLDER} \
             -Dkvs-stream=$STREAM_NAME \
-            com.amazonaws.kinesisvideo.demoapp.${{ matrix.sample }}
+            -Dlog4j.configurationFile=log4j2.xml \
+            com.amazonaws.kinesisvideo.demoapp.${{ matrix.sample }} &
 
           SAMPLE_PID=$!
           echo "Sample process started with PID $SAMPLE_PID"
           
           sleep 30
           echo "Stopping sample process..."
-          kill $SAMPLE_PID
+          kill -9 $SAMPLE_PID

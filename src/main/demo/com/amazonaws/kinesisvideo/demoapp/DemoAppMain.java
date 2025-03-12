@@ -14,6 +14,8 @@ import com.amazonaws.kinesisvideo.java.mediasource.file.ImageFileMediaSourceConf
 import com.amazonaws.regions.Regions;
 import org.apache.logging.log4j.core.config.Configurator;
 
+import java.util.Optional;
+
 import static com.amazonaws.kinesisvideo.util.StreamInfoConstants.ABSOLUTE_TIMECODES;
 
 /**
@@ -61,7 +63,20 @@ public final class DemoAppMain {
 
             // start streaming
             mediaSource.start();
+
+            final int durationSecs = Optional.ofNullable(System.getProperty("duration"))
+                    .map(Integer::parseInt)
+                    .orElse(10);
+            if (durationSecs > 0) {
+
+                Thread.sleep(durationSecs * 1000);
+                mediaSource.stop();
+                kinesisVideoClient.unregisterMediaSource(mediaSource);
+                kinesisVideoClient.free();
+            }
         } catch (final KinesisVideoException e) {
+            throw new RuntimeException(e);
+        } catch (final InterruptedException e) {
             throw new RuntimeException(e);
         }
     }
