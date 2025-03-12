@@ -95,7 +95,7 @@ jobs:
       - name: Download JNI Library
         uses: actions/download-artifact@v4
         with:
-          name: jni-library-${{ runner.os }}
+          name: jni-library-${{ matrix.os }}
           path: jni/
 
       - name: Set JNI Folder Path
@@ -162,7 +162,7 @@ jobs:
       - name: Download JNI Library
         uses: actions/download-artifact@v4
         with:
-          name: jni-library-${{ runner.os }}
+          name: jni-library-${{ matrix.os }}
           path: jni/
 
       - name: Set JNI Folder Path
