@@ -40,7 +40,7 @@ jobs:
       - name: Build JNI (mac)
         if: ${{ runner.os == 'macOS' }}
         run: |
-          brew install pkg-config openssl cmake gstreamer log4cplus
+          brew install log4cplus
           brew unlink openssl
 
           git clone https://github.com/awslabs/amazon-kinesis-video-streams-producer-sdk-cpp.git --single-branch -b master
