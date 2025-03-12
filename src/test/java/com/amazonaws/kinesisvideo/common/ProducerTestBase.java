@@ -181,10 +181,12 @@ public class ProducerTestBase {
                 (byte) 0x1F, (byte) 0x20};
 
         final String prefix = Optional.ofNullable(System.getenv("TEST_STREAMS_PREFIX")).orElse("");
+        final String finalStreamName = prefix + streamName;
+        prepareStream(finalStreamName);
 
         StreamInfo streamInfo = new StreamInfo(
                 StreamInfo.STREAM_INFO_CURRENT_VERSION,
-                prefix + streamName,
+                finalStreamName,
                 streamingType,
                 "video/h264",
                 NO_KMS_KEY_ID,
@@ -222,6 +224,30 @@ public class ProducerTestBase {
             fail();
         }
         return kinesisVideoProducerStream;
+    }
+
+    /**
+     * Create the stream if it doesn't exist. Calls describe to check if it exists first.
+     *
+     * @param streamName the stream to create
+     */
+    protected void prepareStream(String streamName) {
+        final AmazonKinesisVideo kvs = AmazonKinesisVideoClientBuilder.standard()
+                .withRegion(configuration.getRegion())
+                .withCredentials(awsCredentialsProvider)
+                .build();
+        try {
+            final DescribeStreamRequest describeStreamRequest = new DescribeStreamRequest();
+            describeStreamRequest.setStreamName(streamName);
+
+            final DescribeStreamResult describeStreamResult = kvs.describeStream(describeStreamRequest);
+            log.debug("Stream exists! {}", describeStreamResult.getStreamInfo().getStreamARN());
+        } catch (final ResourceNotFoundException e) {
+            final CreateStreamRequest createStreamRequest = new CreateStreamRequest();
+            createStreamRequest.setStreamName(streamName);
+            final CreateStreamResult createStreamResult = kvs.createStream(createStreamRequest);
+            log.debug("Stream created! {}", createStreamResult.getStreamARN());
+        }
     }
 
     /**
