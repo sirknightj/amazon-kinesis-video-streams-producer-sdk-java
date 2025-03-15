@@ -236,6 +236,8 @@ public class ProducerTestBase {
                 .withRegion(configuration.getRegion())
                 .withCredentials(awsCredentialsProvider)
                 .build();
+
+        boolean created = false;
         try {
             final DescribeStreamRequest describeStreamRequest = new DescribeStreamRequest();
             describeStreamRequest.setStreamName(streamName);
@@ -247,6 +249,27 @@ public class ProducerTestBase {
             createStreamRequest.setStreamName(streamName);
             final CreateStreamResult createStreamResult = kvs.createStream(createStreamRequest);
             log.debug("Stream created! {}", createStreamResult.getStreamARN());
+            created = true;
+        }
+
+        // In case the stream hasn't finished being created yet
+        if (created) {
+            for (int i = 0; i < 5; i++) {
+                try {
+                    final DescribeStreamRequest describeStreamRequest = new DescribeStreamRequest();
+                    describeStreamRequest.setStreamName(streamName);
+
+                    final DescribeStreamResult describeStreamResult = kvs.describeStream(describeStreamRequest);
+                    log.debug("Stream exists now. ARN: {}", describeStreamResult.getStreamInfo().getStreamARN());
+                } catch (final Exception e) {
+                    log.info("Stream is still creating... {}/{}", i, 3, e);
+                    try {
+                        Thread.sleep(1000);
+                    } catch (InterruptedException ex) {
+                        throw new RuntimeException(ex);
+                    }
+                }
+            }
         }
     }
 

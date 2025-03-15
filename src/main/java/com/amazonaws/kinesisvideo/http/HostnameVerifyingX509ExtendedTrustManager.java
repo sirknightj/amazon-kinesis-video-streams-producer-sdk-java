@@ -37,7 +37,7 @@ public class HostnameVerifyingX509ExtendedTrustManager extends X509ExtendedTrust
             PublicSuffixMatcherLoader.getDefault());
     private Logger log = LogManager.getLogger(HostnameVerifyingX509ExtendedTrustManager.class);
     private final boolean clientSideHostnameVerificationEnabled;
-    private final boolean skipHostnameVerification;
+    private final boolean skipHostAddressVerification;
 
     private final X509ExtendedTrustManager x509ExtendedTrustManager;
 
@@ -47,10 +47,10 @@ public class HostnameVerifyingX509ExtendedTrustManager extends X509ExtendedTrust
 
     public HostnameVerifyingX509ExtendedTrustManager(
             final boolean clientSideHostnameVerificationEnabled,
-            final boolean skipHostnameVerification) {
+            final boolean skipHostAddressVerification) {
         this.x509ExtendedTrustManager = getX509ExtendedTrustManager();
         this.clientSideHostnameVerificationEnabled = clientSideHostnameVerificationEnabled;
-        this.skipHostnameVerification = skipHostnameVerification;
+        this.skipHostAddressVerification = skipHostAddressVerification;
     }
 
     private X509ExtendedTrustManager getX509ExtendedTrustManager() {
@@ -168,9 +168,10 @@ public class HostnameVerifyingX509ExtendedTrustManager extends X509ExtendedTrust
             final X509Certificate certificate
     ) throws CertificateException {
         SSLException addressVerificationException = null;
-        if (!skipHostnameVerification) {
+        if (!skipHostAddressVerification) {
             try {
                 DEFAULT_HOSTNAME_VERIFIER.verify(hostAddress, certificate);
+                return;
             } catch (final SSLException ex) {
                 addressVerificationException = ex;
                 log.debug(
@@ -183,7 +184,7 @@ public class HostnameVerifyingX509ExtendedTrustManager extends X509ExtendedTrust
         try {
             DEFAULT_HOSTNAME_VERIFIER.verify(hostName, certificate);
         } catch (final SSLException hostnameVerificationException) {
-            if (!clientSideHostnameVerificationEnabled) {
+            if (!skipHostAddressVerification) {
                 log.error("Failed to verify host address: {}", hostAddress, addressVerificationException);
             }
             log.error("Failed to verify hostname: {}", hostName, hostnameVerificationException);
