@@ -45,7 +45,7 @@ jobs:
           export OPENSSL_LIBRARIES=$(brew --prefix openssl)/lib
           export OPENSSL_INCLUDE_DIR=$(brew --prefix openssl)/include
 
-          git clone https://github.com/awslabs/amazon-kinesis-video-streams-producer-sdk-cpp.git --single-branch -b master
+          git clone https://github.com/awslabs/amazon-kinesis-video-streams-producer-sdk-cpp.git --single-branch -b jni-fix-logging-after-free-issue
           cd amazon-kinesis-video-streams-producer-sdk-cpp
           mkdir build
           cd build
