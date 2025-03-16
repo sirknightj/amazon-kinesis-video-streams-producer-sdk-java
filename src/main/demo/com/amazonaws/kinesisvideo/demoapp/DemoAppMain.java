@@ -63,7 +63,13 @@ public final class DemoAppMain {
 
             // start streaming
             mediaSource.start();
-        } catch (final KinesisVideoException e) {
+
+            Thread.sleep(3000);
+
+            mediaSource.stop();
+            kinesisVideoClient.unregisterMediaSource(mediaSource);
+            kinesisVideoClient.free();
+        } catch (final KinesisVideoException | InterruptedException e) {
             throw new RuntimeException(e);
         }
     }

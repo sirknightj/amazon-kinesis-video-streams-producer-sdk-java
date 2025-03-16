@@ -185,30 +185,19 @@ jobs:
       - name: Create the stream (DemoAppCachedInfo)
         # This sample needs a pre-created stream: `${NAME}`
         if: ${{ matrix.sample == 'DemoAppMain' }}
+        working-directory: scripts
         run: |
-          aws kinesisvideo create-stream \
-            --stream-name "$STREAM_NAME" \
-            --data-retention-in-hours 2 \
-            --region ${{ secrets.AWS_REGION }} \
-            --no-cli-pager || echo "Stream already exists, continuing..."
+          ./prepareStream.sh "$STREAM_NAME" \
 
         shell: bash
 
       - name: Create the stream (DemoAppCachedInfo)
         # This sample needs 2 pre-created streams: `${NAME}-account-1` and `${NAME}-account-2`
         if: ${{ matrix.sample == 'DemoAppCachedInfo' }}
+        working-directory: scripts
         run: |
-          aws kinesisvideo create-stream \
-            --stream-name "$STREAM_NAME-account-1" \
-            --data-retention-in-hours 2 \
-            --region ${{ secrets.AWS_REGION }} \
-            --no-cli-pager || echo "Stream already exists, continuing..."
-
-          aws kinesisvideo create-stream \
-            --stream-name "$STREAM_NAME-account-2" \
-            --data-retention-in-hours 2 \
-            --region ${{ secrets.AWS_REGION }} \
-            --no-cli-pager || echo "Stream already exists, continuing..."
+          ./prepareStream.sh "$STREAM_NAME-account-1"
+          ./prepareStream.sh "$STREAM_NAME-account-2"
 
         shell: bash
 

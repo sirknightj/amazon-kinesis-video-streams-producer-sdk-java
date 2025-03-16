@@ -228,10 +228,11 @@ public class ProducerTestBase {
 
     /**
      * Create the stream if it doesn't exist. Calls describe to check if it exists first.
+     * Also verifies the retention period and updates it if it's 0.
      *
      * @param streamName the stream to create
      */
-    protected void prepareStream(String streamName) {
+    protected void prepareStream(final String streamName) {
         final AmazonKinesisVideo kvs = AmazonKinesisVideoClientBuilder.standard()
                 .withRegion(configuration.getRegion())
                 .withCredentials(awsCredentialsProvider)
@@ -244,9 +245,23 @@ public class ProducerTestBase {
 
             final DescribeStreamResult describeStreamResult = kvs.describeStream(describeStreamRequest);
             log.debug("Stream exists! {}", describeStreamResult.getStreamInfo().getStreamARN());
-        } catch (final ResourceNotFoundException e) {
+
+
+            if (describeStreamResult.getStreamInfo().getDataRetentionInHours() == 0) {
+                log.info("Stream {} does not have any retention. Updating...", streamName);
+
+                final UpdateDataRetentionRequest updateDataRetentionRequest = new UpdateDataRetentionRequest();
+                updateDataRetentionRequest.setStreamName(streamName);
+                updateDataRetentionRequest.setCurrentVersion(describeStreamResult.getStreamInfo().getVersion());
+                updateDataRetentionRequest.setOperation(UpdateDataRetentionOperation.INCREASE_DATA_RETENTION.toString());
+                updateDataRetentionRequest.setDataRetentionChangeInHours(2);
+                kvs.updateDataRetention(updateDataRetentionRequest);
+            }
+
+        } catch (final Exception e) {
             final CreateStreamRequest createStreamRequest = new CreateStreamRequest();
             createStreamRequest.setStreamName(streamName);
+            createStreamRequest.setDataRetentionInHours(2);
             final CreateStreamResult createStreamResult = kvs.createStream(createStreamRequest);
             log.debug("Stream created! {}", createStreamResult.getStreamARN());
             created = true;
@@ -264,7 +279,7 @@ public class ProducerTestBase {
                 } catch (final Exception e) {
                     log.info("Stream is still creating... {}/{}", i, 3, e);
                     try {
-                        Thread.sleep(1000);
+                        Thread.sleep(1000L * (1 << i));
                     } catch (InterruptedException ex) {
                         throw new RuntimeException(ex);
                     }
