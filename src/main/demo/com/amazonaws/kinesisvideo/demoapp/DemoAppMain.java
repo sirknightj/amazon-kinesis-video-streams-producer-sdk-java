@@ -12,8 +12,12 @@ import com.amazonaws.kinesisvideo.java.mediasource.file.AudioVideoFileMediaSourc
 import com.amazonaws.kinesisvideo.java.mediasource.file.ImageFileMediaSource;
 import com.amazonaws.kinesisvideo.java.mediasource.file.ImageFileMediaSourceConfiguration;
 import com.amazonaws.regions.Regions;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.core.config.Configurator;
 
+import java.lang.invoke.MethodHandles;
+import java.time.Duration;
 import java.util.Optional;
 
 import static com.amazonaws.kinesisvideo.util.StreamInfoConstants.ABSOLUTE_TIMECODES;
@@ -22,6 +26,9 @@ import static com.amazonaws.kinesisvideo.util.StreamInfoConstants.ABSOLUTE_TIMEC
  * Demo Java Producer.
  */
 public final class DemoAppMain {
+
+    private static final Logger log = LogManager.getLogger(MethodHandles.lookup().lookupClass());
+
     // Use a different stream name when testing audio/video sample
     private static final String STREAM_NAME = Optional.ofNullable(System.getProperty("kvs-stream")).orElse("");
     private static final int FPS_25 = 25;
@@ -34,6 +41,18 @@ public final class DemoAppMain {
     private static final String IMAGE_FILENAME_FORMAT = "frame-%03d.h264";
     private static final int START_FILE_INDEX = 1;
     private static final int END_FILE_INDEX = 375;
+
+    private static final Duration DEFAULT_DURATION_TO_STREAM = Duration.ofSeconds(10);
+    private static final Duration DURATION_TO_STREAM = Optional.ofNullable(System.getProperty("stream-duration"))
+            .map(value -> {
+                try {
+                    return Duration.ofMillis(Long.parseLong(value));
+                } catch (final NumberFormatException e) {
+                    log.error("Invalid stream-duration value: {}. Using default {} ms.", value, DEFAULT_DURATION_TO_STREAM.toMillis());
+                    return null;
+                }
+            })
+            .orElse(DEFAULT_DURATION_TO_STREAM);
 
     private DemoAppMain() {
         throw new UnsupportedOperationException();
@@ -64,8 +83,11 @@ public final class DemoAppMain {
             // start streaming
             mediaSource.start();
 
-            Thread.sleep(3000);
 
+            log.info("Main thread sleeping {} ms.", DURATION_TO_STREAM.toMillis());
+            Thread.sleep(DURATION_TO_STREAM.toMillis());
+
+            log.info("Stopping stream...");
             mediaSource.stop();
             kinesisVideoClient.unregisterMediaSource(mediaSource);
             kinesisVideoClient.free();

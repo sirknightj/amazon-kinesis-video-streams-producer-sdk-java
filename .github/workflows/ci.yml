@@ -50,8 +50,8 @@ jobs:
           mkdir build
           cd build
           cmake .. -DBUILD_DEPENDENCIES=OFF -DBUILD_JNI=ON
-          make -j$(sysctl -n hw.cpu)
-          
+          make -j
+
           # Verify the file is there
           file libKinesisVideoProducerJNI.dylib
 
@@ -202,7 +202,7 @@ jobs:
         shell: bash
 
       - name: Run the sample
-        run: |          
+        run: |
           java -classpath target/amazon-kinesis-video-streams-producer-sdk-java-1.12.2-jar-with-dependencies.jar \
             -Daws.accessKeyId=${AWS_ACCESS_KEY_ID} \
             -Daws.secretKey=${AWS_SECRET_ACCESS_KEY} \
@@ -214,7 +214,7 @@ jobs:
 
           SAMPLE_PID=$!
           echo "Sample process started with PID $SAMPLE_PID"
-          
+
           sleep 10
           echo "Stopping sample process..."
           kill -9 $SAMPLE_PID
