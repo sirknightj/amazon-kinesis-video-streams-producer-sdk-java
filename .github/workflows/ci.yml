@@ -56,29 +56,41 @@ jobs:
           distribution: 'adopt'
           cache: maven
 
-      - name: Build JNI (mac)
-        if: ${{ runner.os == 'macOS' }}
+      - name: Build JNI (Mac and Linux)
+        if: ${{ runner.os == 'macOS' || runner.os == 'linux' }}
         run: |
-          brew install log4cplus
-          export OPENSSL_ROOT_DIR=$(brew --prefix openssl)
-          export OPENSSL_LIBRARIES=$(brew --prefix openssl)/lib
-          export OPENSSL_INCLUDE_DIR=$(brew --prefix openssl)/include
-
-          git clone https://github.com/awslabs/amazon-kinesis-video-streams-producer-sdk-cpp.git --single-branch -b jni-fix-logging-after-free-issue
+          git clone https://github.com/awslabs/amazon-kinesis-video-streams-producer-sdk-cpp.git
+          # git clone https://github.com/awslabs/amazon-kinesis-video-streams-producer-sdk-cpp.git --single-branch -b jni-fix-logging-after-free-issue
           cd amazon-kinesis-video-streams-producer-sdk-cpp
+          git checkout jni-fix-logging-after-free-issue
+          git merge --no-commit origin/build-optimizations
           mkdir build
           cd build
-          cmake .. -DBUILD_DEPENDENCIES=OFF -DBUILD_JNI=ON
+          cmake .. -DBUILD_JNI_ONLY=ON
           make -j
 
-          # Verify the file is there
-          file libKinesisVideoProducerJNI.dylib
+          echo "LIB_EXT=$([[ '${{ runner.os }}' == 'macOS' ]] && echo 'dylib' || echo 'so')" >> $GITHUB_ENV
+
+      - name: Build JNI (Windows)
+        if: ${{ runner.os == 'Windows' }}
+        shell: cmd
+        run: |
+          git clone https://github.com/awslabs/amazon-kinesis-video-streams-producer-sdk-cpp.git
+          cd amazon-kinesis-video-streams-producer-sdk-cpp
+          git checkout jni-fix-logging-after-free-issue
+          git merge --no-commit origin/build-optimizations
+          mkdir build
+          cd build
+          cmake .. -DBUILD_JNI_ONLY=ON -G "Visual Studio 17 2022"
+          cmake --build . --config Release
+
+          echo "LIB_EXT=dll" >> $GITHUB_ENV
 
       - name: Upload JNI Library
         uses: actions/upload-artifact@v4
         with:
           name: jni-library-${{ matrix.os }}
-          path: amazon-kinesis-video-streams-producer-sdk-cpp/build/libKinesisVideoProducerJNI.dylib
+          path: amazon-kinesis-video-streams-producer-sdk-cpp/build/libKinesisVideoProducerJNI.${{ env.LIB_EXT }}
           retention-days: 1
 
   run-unit-tests:

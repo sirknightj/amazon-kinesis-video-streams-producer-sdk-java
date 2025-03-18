@@ -2,6 +2,8 @@ matrix:
   os:
     - macos-13
     - macos-latest
+    - ubuntu-22.04
+    - windows-2022
   java:
     - 11
   sample:
