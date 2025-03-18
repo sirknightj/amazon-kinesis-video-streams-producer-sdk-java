@@ -203,19 +203,36 @@ jobs:
 
       - name: Run the sample
         run: |
-          java -classpath target/amazon-kinesis-video-streams-producer-sdk-java-1.12.2-jar-with-dependencies.jar \
+          set +e
+
+          JAR_FILE=$(find target -name '*jar-with-dependencies.jar' | head -n 1)
+
+          if [ -z "$JAR_FILE" ]; then
+            echo "Error: JAR file not found!"
+            exit 1
+          fi
+
+          echo "Using JAR file: $JAR_FILE"
+
+          gtimeout 30s java -classpath "$JAR_FILE" \
             -Daws.accessKeyId=${AWS_ACCESS_KEY_ID} \
             -Daws.secretKey=${AWS_SECRET_ACCESS_KEY} \
             -Daws.sessionToken=${AWS_SESSION_TOKEN} \
             -Djava.library.path=${JNI_FOLDER} \
             -Dkvs-stream=$STREAM_NAME \
             -Dlog4j.configurationFile=log4j2.xml \
-            -Dstream-duration-ms=10000 \
-            com.amazonaws.kinesisvideo.demoapp.${{ matrix.sample }} &
+            com.amazonaws.kinesisvideo.demoapp.${{ matrix.sample }}
 
-          SAMPLE_PID=$!
-          echo "Sample process started with PID $SAMPLE_PID"
+          EXIT_CODE=$?
 
-          sleep 10
-          echo "Stopping sample process..."
-          kill -9 $SAMPLE_PID
+          set -e
+
+          # Check if the process was forcefully killed
+          if [ $EXIT_CODE -eq 124 ]; then
+            echo "Error: Sample application exceeded 30 seconds and was forcefully terminated."
+            exit 1
+          fi
+
+          # Preserve original exit code
+          echo "Process exited with code: $EXIT_CODE"
+          exit $EXIT_CODE
