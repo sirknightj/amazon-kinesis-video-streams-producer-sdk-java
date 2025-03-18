@@ -26,8 +26,8 @@ jobs:
         run: |
           MATRIX=$(yq eval '.matrix | explode(.)' .github/matrix.yaml -o=json)
 
-          BUILD_JNI_MATRIX=$(echo "$MATRIX" | jq -c '{platforms: .platforms}')
-          UNIT_TEST_MATRIX=$(echo "$MATRIX" | jq -c '{platforms: .platforms, java: .java}')
+          BUILD_JNI_MATRIX=$(echo "$MATRIX" | jq -c '{platform: .platform}')
+          UNIT_TEST_MATRIX=$(echo "$MATRIX" | jq -c '{platform: .platform, java: .java}')
           SAMPLE_MATRIX=$(echo "$MATRIX" | jq -c '.')
 
           echo "build_jni_matrix=$BUILD_JNI_MATRIX" >> $GITHUB_OUTPUT
@@ -40,7 +40,7 @@ jobs:
       matrix: ${{ fromJson(needs.load-matrix.outputs.build_jni_matrix) }}
       fail-fast: false
 
-    runs-on: ${{ matrix.platforms.os }}
+    runs-on: ${{ matrix.platform.os }}
 
     env:
       BRANCH_NAME: develop
@@ -103,7 +103,7 @@ jobs:
       - name: Upload JNI Library
         uses: actions/upload-artifact@v4
         with:
-          name: jni-library-${{ matrix.platforms.name }}
+          name: jni-library-${{ matrix.platform.name }}
           path: |
             amazon-kinesis-video-streams-producer-sdk-cpp/build/libKinesisVideoProducerJNI.so
             amazon-kinesis-video-streams-producer-sdk-cpp/build/libKinesisVideoProducerJNI.dylib
@@ -119,7 +119,7 @@ jobs:
       fail-fast: false
 
     env:
-      TEST_STREAMS_PREFIX: producer-java-${{ matrix.platforms.os }}-java-${{ matrix.java }}_
+      TEST_STREAMS_PREFIX: producer-java-${{ matrix.platform.os }}-java-${{ matrix.java }}_
       JNI_FOLDER: ${{ github.workspace }}/jni
 
     runs-on: ${{ matrix.platform.os }}
@@ -211,7 +211,6 @@ jobs:
         if: ${{ matrix.sample == 'DemoAppMain' }}
         working-directory: scripts
         run: |
-          aws sts get-caller-identity
           ./prepareStream.sh "$STREAM_NAME"
 
         shell: bash

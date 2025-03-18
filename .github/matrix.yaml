@@ -1,5 +1,5 @@
 matrix:
-  platforms:
+  platform:
     - os: macos-13
       name: macos-x86_64
     - os: macos-latest
