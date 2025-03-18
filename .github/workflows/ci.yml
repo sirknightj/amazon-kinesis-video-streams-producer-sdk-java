@@ -59,6 +59,8 @@ jobs:
       - name: Build JNI (Mac and Linux)
         if: ${{ runner.os == 'macOS' || runner.os == 'linux' }}
         run: |
+          git config user.email "me@example.com"
+          git config user.name "Name"
           git clone https://github.com/awslabs/amazon-kinesis-video-streams-producer-sdk-cpp.git
           # git clone https://github.com/awslabs/amazon-kinesis-video-streams-producer-sdk-cpp.git --single-branch -b jni-fix-logging-after-free-issue
           cd amazon-kinesis-video-streams-producer-sdk-cpp
