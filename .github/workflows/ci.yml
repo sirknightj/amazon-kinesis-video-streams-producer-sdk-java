@@ -183,6 +183,11 @@ jobs:
             echo "JNI_FOLDER=$(pwd)/src/main/resources/lib/mac/" >> $GITHUB_ENV
           fi
 
+      - name: Install dependencies (MacOS)
+        if: ${{ runner.os == 'macOS' }}
+        run: |
+          brew install coreutils # For `gtimeout`
+
       - name: Build with Maven
         run: mvn clean compile assembly:single
 
