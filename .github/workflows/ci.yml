@@ -73,9 +73,16 @@ jobs:
           @echo on
 
           :: Create a shorter directory to avoid long path issues
-          mkdir C:\work || exit /b 1
-          git clone https://github.com/awslabs/amazon-kinesis-video-streams-producer-sdk-cpp.git C:\work\producer --single-branch -b ${{ env.BRANCH_NAME }} || exit /b 1
-          cd C:\work\producer || exit /b 1
+          mkdir D:\work || exit /b 1
+          git clone https://github.com/awslabs/amazon-kinesis-video-streams-producer-sdk-cpp.git D:\work\producer --single-branch -b ${{ env.BRANCH_NAME }} || exit /b 1
+
+          :: Ensure cloning succeeded
+          if not exist "D:\work\producer" (
+              echo "Error: Clone failed, directory does not exist."
+              exit /b 1
+          )
+
+          cd D:\work\producer || exit /b 1
       
           :: Create build directory
           mkdir build || exit /b 1
