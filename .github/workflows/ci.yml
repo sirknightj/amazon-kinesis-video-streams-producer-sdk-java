@@ -98,7 +98,7 @@ jobs:
           cd "%GITHUB_WORKSPACE%" || exit /b 1
           mkdir amazon-kinesis-video-streams-producer-sdk-cpp || exit /b 1
           mkdir amazon-kinesis-video-streams-producer-sdk-cpp\build || exit /b 1
-          move build\Release\KinesisVideoProducerJNI.dll amazon-kinesis-video-streams-producer-sdk-cpp\build || exit /b 1          
+          move D:\work\producer\build\Release\KinesisVideoProducerJNI.dll amazon-kinesis-video-streams-producer-sdk-cpp\build || exit /b 1          
 
       - name: Upload JNI Library
         uses: actions/upload-artifact@v4
