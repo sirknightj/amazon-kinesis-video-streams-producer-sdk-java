@@ -225,7 +225,8 @@ jobs:
         if: ${{ matrix.sample == 'DemoAppMain' }}
         working-directory: scripts
         run: |
-          ./prepareStream.sh "$STREAM_NAME" \
+          aws sts get-caller-identity
+          ./prepareStream.sh "$STREAM_NAME"
 
         shell: bash
 
