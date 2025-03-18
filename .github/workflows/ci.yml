@@ -75,15 +75,21 @@ jobs:
         if: ${{ runner.os == 'Windows' }}
         shell: cmd
         run: |
-          git config --system core.longpaths true
-          git clone https://github.com/awslabs/amazon-kinesis-video-streams-producer-sdk-cpp.git
-          cd amazon-kinesis-video-streams-producer-sdk-cpp
+          :: Create a shorter directory to avoid long path issues
+          mkdir C:\work
+          git clone https://github.com/awslabs/amazon-kinesis-video-streams-producer-sdk-cpp.git C:\work\producer
+          cd C:\work\producer
+
           git checkout jni-fix-logging-after-free-issue
           git diff origin/jni-fix-logging-after-free-issue..origin/build-optimizations | git apply
           mkdir build
           cd build
           cmake .. -DBUILD_JNI_ONLY=ON -G "Visual Studio 17 2022"
           cmake --build . --config Release
+
+          cd "$GITHUB_WORKSPACE"
+          mkdir -p amazon-kinesis-video-streams-producer-sdk-cpp\build
+          mv C:\work\producer\build\libKinesisVideoProducerJNI.dll .\amazon-kinesis-video-streams-producer-sdk-cpp\build
 
           echo "LIB_EXT=dll" >> $GITHUB_ENV
 
