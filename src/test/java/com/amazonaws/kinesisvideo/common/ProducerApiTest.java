@@ -2,9 +2,14 @@ package com.amazonaws.kinesisvideo.common;
 
 import java.nio.ByteBuffer;
 
+import static com.amazonaws.kinesisvideo.internal.producer.jni.NativeKinesisVideoProducerJni.PRODUCER_NATIVE_LIBRARY_NAME;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
+import static org.junit.Assume.assumeTrue;
+
+import org.junit.Before;
+import org.junit.BeforeClass;
 import org.junit.Test;
 
 import com.amazonaws.kinesisvideo.producer.StreamInfo;
@@ -17,6 +22,14 @@ public class ProducerApiTest extends ProducerTestBase{
 
     private static final int TEST_STREAM_COUNT = 10;
     private static final int TEST_START_STOP_ITERATION_COUNT = 200;
+
+    @Before
+    public void checkJNIAvailability() {
+        final boolean jniLoaded = isJNILoaded();
+        if (!jniLoaded) {
+            fail("JNI library not found.");
+        }
+    }
 
     /**
      * This test attempts to create multiple streams, free them, re-create them, free them,

@@ -4,6 +4,8 @@ import java.util.HashMap;
 import java.util.Optional;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+
+import static com.amazonaws.kinesisvideo.internal.producer.jni.NativeKinesisVideoProducerJni.PRODUCER_NATIVE_LIBRARY_NAME;
 import static org.junit.Assert.fail;
 
 import com.amazonaws.auth.AWSCredentialsProvider;
@@ -100,6 +102,15 @@ public class ProducerTestBase {
         fps_ = 20;
         keyFrameInterval_ = 20;
         frameDuration_ = 1000 * Time.HUNDREDS_OF_NANOS_IN_A_MILLISECOND / fps_;
+    }
+
+    protected static boolean isJNILoaded() {
+        try {
+            System.loadLibrary(PRODUCER_NATIVE_LIBRARY_NAME);
+            return true;
+        } catch (final UnsatisfiedLinkError e) {
+            return false;
+        }
     }
 
     protected long getFragmentDurationMs() {

@@ -63,7 +63,7 @@ jobs:
           # git clone https://github.com/awslabs/amazon-kinesis-video-streams-producer-sdk-cpp.git --single-branch -b jni-fix-logging-after-free-issue
           cd amazon-kinesis-video-streams-producer-sdk-cpp
           git checkout jni-fix-logging-after-free-issue
-          git diff origin/jni-fix-logging-after-free-issue..origin/build-optimizations | git apply
+          git merge --no-commit origin/build-optimizations
           mkdir build
           cd build
           cmake .. -DBUILD_JNI_ONLY=ON
@@ -305,7 +305,7 @@ jobs:
             -Djava.library.path=%JNI_FOLDER% ^
             -Dkvs-stream=%STREAM_NAME% ^
             -Dlog4j.configurationFile=log4j2.xml ^
-            com.amazonaws.kinesisvideo.demoapp.%MATRIX_SAMPLE%
+            com.amazonaws.kinesisvideo.demoapp.${{ matrix.sample }}
           
           set EXIT_CODE=%ERRORLEVEL%
           

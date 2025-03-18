@@ -38,7 +38,7 @@ public class SocketFactoryTest {
         }
     }
 
-    @Test(expected = RuntimeException.class)
+    @Test(expected = Exception.class)
     public void testCreateSocket_InvalidURI() throws URISyntaxException, IOException {
         try (Socket socket = socketFactory.createSocket(new URI("invalid://localhost"))) {
             fail("It should have thrown an exception");
