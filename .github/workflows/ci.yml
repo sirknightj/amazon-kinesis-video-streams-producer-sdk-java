@@ -105,19 +105,15 @@ jobs:
           :: Run CMake with the correct path
           cmake .. -DBUILD_JNI_ONLY=ON -G "Visual Studio 17 2022" || exit /b 1
           cmake --build . --config Release --verbose || exit /b 1
-          
-          dir
-          
-          dir x64
-          
-          dir Release
       
           :: Move the compiled library to the expected location
+          :: Note: Using Visual Studio generator, the output file gets put in Release\KinesisVideoProducerJNI.dll
+          :: rather than in the build folder directly
           cd "%GITHUB_WORKSPACE%" || exit /b 1
           mkdir amazon-kinesis-video-streams-producer-sdk-cpp || exit /b 1
           mkdir amazon-kinesis-video-streams-producer-sdk-cpp\build || exit /b 1
-          move C:\work\producer\build\Release\libKinesisVideoProducerJNI.dll amazon-kinesis-video-streams-producer-sdk-cpp\build || exit /b 1
-      
+          move build\Release\KinesisVideoProducerJNI.dll amazon-kinesis-video-streams-producer-sdk-cpp\build || exit /b 1          
+          
           :: Set the environment variable
           echo "LIB_EXT=dll" >> %GITHUB_ENV%
 
