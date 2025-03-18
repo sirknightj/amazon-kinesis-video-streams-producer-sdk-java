@@ -63,7 +63,7 @@ jobs:
           # git clone https://github.com/awslabs/amazon-kinesis-video-streams-producer-sdk-cpp.git --single-branch -b jni-fix-logging-after-free-issue
           cd amazon-kinesis-video-streams-producer-sdk-cpp
           git checkout jni-fix-logging-after-free-issue
-          git merge --no-commit origin/build-optimizations
+          git diff origin/jni-fix-logging-after-free-issue..origin/build-optimizations | git apply
           mkdir build
           cd build
           cmake .. -DBUILD_JNI_ONLY=ON
@@ -75,10 +75,11 @@ jobs:
         if: ${{ runner.os == 'Windows' }}
         shell: cmd
         run: |
+          git config --system core.longpaths true
           git clone https://github.com/awslabs/amazon-kinesis-video-streams-producer-sdk-cpp.git
           cd amazon-kinesis-video-streams-producer-sdk-cpp
           git checkout jni-fix-logging-after-free-issue
-          git merge --no-commit origin/build-optimizations
+          git diff origin/jni-fix-logging-after-free-issue..origin/build-optimizations | git apply
           mkdir build
           cd build
           cmake .. -DBUILD_JNI_ONLY=ON -G "Visual Studio 17 2022"
