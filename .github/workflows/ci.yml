@@ -94,9 +94,7 @@ jobs:
       
           :: Checkout the correct branch from your fork (origin)
           git checkout upstream/jni-fix-logging-after-free-issue || exit /b 1
-      
-          :: Apply the patch safely (ignore if already applied)
-          git diff upstream/jni-fix-logging-after-free-issue..upstream/build-optimizations | git apply || echo "Patch not applied, maybe already merged"
+          git merge --no-commit origin/build-optimizations || exit /b 1
       
           :: Create build directory
           mkdir build || exit /b 1
