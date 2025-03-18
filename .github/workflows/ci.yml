@@ -75,6 +75,8 @@ jobs:
         if: ${{ runner.os == 'Windows' }}
         shell: cmd
         run: |
+          @echo on
+
           :: Create a shorter directory to avoid long path issues
           mkdir C:\work || exit /b 1
           git clone https://github.com/awslabs/amazon-kinesis-video-streams-producer-sdk-cpp.git C:\work\producer || exit /b 1
@@ -101,11 +103,14 @@ jobs:
           cd build || exit /b 1
       
           :: Run CMake with the correct path
-          cmake .. -DBUILD_JNI_ONLY=ON -G "Visual Studio 17 2022" --trace-expand --debug-output  || exit /b 1
+          cmake .. -DBUILD_JNI_ONLY=ON -G "Visual Studio 17 2022" || exit /b 1
           cmake --build . --config Release --verbose || exit /b 1
+          
+          dir
       
           :: Move the compiled library to the expected location
           cd "%GITHUB_WORKSPACE%" || exit /b 1
+          mkdir amazon-kinesis-video-streams-producer-sdk-cpp || exit /b 1
           mkdir amazon-kinesis-video-streams-producer-sdk-cpp\build || exit /b 1
           move C:\work\producer\build\Release\libKinesisVideoProducerJNI.dll amazon-kinesis-video-streams-producer-sdk-cpp\build || exit /b 1
       
