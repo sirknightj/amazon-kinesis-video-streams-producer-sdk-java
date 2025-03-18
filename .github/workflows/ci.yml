@@ -101,8 +101,8 @@ jobs:
           cd build || exit /b 1
       
           :: Run CMake with the correct path
-          cmake .. -DBUILD_JNI_ONLY=ON -G "Visual Studio 17 2022" || exit /b 1
-          cmake --build . --config Release || exit /b 1
+          cmake .. -DBUILD_JNI_ONLY=ON -G "Visual Studio 17 2022" --trace-expand --debug-output  || exit /b 1
+          cmake --build . --config Release --verbose || exit /b 1
       
           :: Move the compiled library to the expected location
           cd "%GITHUB_WORKSPACE%" || exit /b 1
