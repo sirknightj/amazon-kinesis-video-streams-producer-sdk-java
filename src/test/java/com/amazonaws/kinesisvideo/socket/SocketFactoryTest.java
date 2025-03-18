@@ -38,10 +38,30 @@ public class SocketFactoryTest {
         }
     }
 
-    @Test(expected = Exception.class)
+    @Test
     public void testCreateSocket_InvalidURI() throws URISyntaxException, IOException {
         try (Socket socket = socketFactory.createSocket(new URI("invalid://localhost"))) {
             fail("It should have thrown an exception");
+        } catch (final RuntimeException e) {
+            assertTrue(e.getCause() instanceof IllegalArgumentException);
+        }
+    }
+
+    @Test
+    public void testCreateSocket_UnreachablePort() throws URISyntaxException, IOException {
+        try (Socket socket = socketFactory.createSocket(new URI("http://localhost:65535"))) {
+            fail("It should have thrown an exception");
+        } catch (final RuntimeException e) {
+            assertTrue(e.getCause() instanceof ConnectException);
+        }
+    }
+
+    @Test
+    public void testCreateSocket_NonExistentDomain() throws URISyntaxException, IOException {
+        try (Socket socket = socketFactory.createSocket(new URI("http://nonexistent.example.com:80"))) {
+            fail("It should have thrown an exception");
+        } catch (final RuntimeException e) {
+            assertTrue(e.getCause() instanceof UnknownHostException);
         }
     }
 }

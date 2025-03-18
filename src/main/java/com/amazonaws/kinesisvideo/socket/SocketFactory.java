@@ -110,8 +110,12 @@ public class SocketFactory {
      *
      * @param uri The URI to check.
      * @return {@code true} if the URI scheme is "https", otherwise {@code false}.
+     * @throws IllegalArgumentException if the URI scheme isn't "http" or "https".
      */
     private boolean isHttps(final URI uri) {
+        if (!"http".equalsIgnoreCase(uri.getScheme()) && !"https".equalsIgnoreCase(uri.getScheme())) {
+            throw new IllegalArgumentException("Unsupported URI scheme: '" + uri.getScheme() + "' in URI: " + uri);
+        }
         return "https".equalsIgnoreCase(uri.getScheme());
     }
 
