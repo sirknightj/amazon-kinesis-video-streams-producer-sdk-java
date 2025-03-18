@@ -91,10 +91,10 @@ jobs:
           git fetch upstream || echo "Could not fetch upstream"
       
           :: Checkout the correct branch from your fork (origin)
-          git checkout jni-fix-logging-after-free-issue || exit /b 1
+          git checkout upstream/jni-fix-logging-after-free-issue || exit /b 1
       
           :: Apply the patch safely (ignore if already applied)
-          git diff origin/jni-fix-logging-after-free-issue..origin/build-optimizations | git apply || echo "Patch not applied, maybe already merged"
+          git diff upstream/jni-fix-logging-after-free-issue..upstream/build-optimizations | git apply || echo "Patch not applied, maybe already merged"
       
           :: Create build directory
           mkdir build || exit /b 1
