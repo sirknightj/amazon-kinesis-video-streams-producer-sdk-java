@@ -115,7 +115,7 @@ jobs:
           move build\Release\KinesisVideoProducerJNI.dll amazon-kinesis-video-streams-producer-sdk-cpp\build || exit /b 1          
           
           :: Set the environment variable
-          echo "LIB_EXT=dll" >> %GITHUB_ENV%
+          echo LIB_EXT=dll >> %GITHUB_ENV%
 
       - name: Upload JNI Library
         uses: actions/upload-artifact@v4
@@ -259,7 +259,8 @@ jobs:
 
         shell: bash
 
-      - name: Run the sample
+      - name: Run the sample (Mac and Linux)
+        if: ${{ runner.os == 'macOS' || runner.os == 'linux' }}
         run: |
           set +e
 
@@ -271,8 +272,15 @@ jobs:
           fi
 
           echo "Using JAR file: $JAR_FILE"
+          
+          # Use gtimeout on macOS and timeout on Linux
+          if [ "${{ runner.os }}" == "macOS" ]; then
+            TIMEOUT_CMD="gtimeout"
+          else
+            TIMEOUT_CMD="timeout"
+          fi
 
-          gtimeout 30s java -classpath "$JAR_FILE" \
+          $TIMEOUT_CMD 30s java -classpath "$JAR_FILE" \
             -Daws.accessKeyId=${AWS_ACCESS_KEY_ID} \
             -Daws.secretKey=${AWS_SECRET_ACCESS_KEY} \
             -Daws.sessionToken=${AWS_SESSION_TOKEN} \
@@ -294,3 +302,34 @@ jobs:
           # Preserve original exit code
           echo "Process exited with code: $EXIT_CODE"
           exit $EXIT_CODE
+
+        shell: bash
+
+      - name: Run the sample (Windows)
+        if: ${{ runner.os == 'Windows' }}
+        shell: cmd
+        run: |
+          for /f "delims=" %%F in ('dir /b /s target\*jar-with-dependencies.jar') do set JAR_FILE=%%F
+          
+          if not defined JAR_FILE (
+            echo Error: JAR file not found!
+            exit /b 1
+          )
+          
+          echo Using JAR file: %JAR_FILE%
+          
+          timeout /t 30 /nobreak && exit /b 124
+          
+          java -classpath "%JAR_FILE%" ^
+            -Daws.accessKeyId=%AWS_ACCESS_KEY_ID% ^
+            -Daws.secretKey=%AWS_SECRET_ACCESS_KEY% ^
+            -Daws.sessionToken=%AWS_SESSION_TOKEN% ^
+            -Djava.library.path=%JNI_FOLDER% ^
+            -Dkvs-stream=%STREAM_NAME% ^
+            -Dlog4j.configurationFile=log4j2.xml ^
+            com.amazonaws.kinesisvideo.demoapp.%MATRIX_SAMPLE%
+          
+          set EXIT_CODE=%ERRORLEVEL%
+          
+          echo Process exited with code: %EXIT_CODE%
+          exit /b %EXIT_CODE%
