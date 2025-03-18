@@ -26,8 +26,8 @@ jobs:
         run: |
           MATRIX=$(yq eval '.matrix | explode(.)' .github/matrix.yaml -o=json)
 
-          BUILD_JNI_MATRIX=$(echo "$MATRIX" | jq -c '{os: .os}')
-          UNIT_TEST_MATRIX=$(echo "$MATRIX" | jq -c '{os: .os, java: .java}')
+          BUILD_JNI_MATRIX=$(echo "$MATRIX" | jq -c '{platforms: .platforms}')
+          UNIT_TEST_MATRIX=$(echo "$MATRIX" | jq -c '{platforms: .platforms, java: .java}')
           SAMPLE_MATRIX=$(echo "$MATRIX" | jq -c '.')
 
           echo "build_jni_matrix=$BUILD_JNI_MATRIX" >> $GITHUB_OUTPUT
@@ -40,7 +40,7 @@ jobs:
       matrix: ${{ fromJson(needs.load-matrix.outputs.build_jni_matrix) }}
       fail-fast: false
 
-    runs-on: ${{ matrix.os }}
+    runs-on: ${{ matrix.platforms.os }}
 
     env:
       BRANCH_NAME: develop
@@ -103,7 +103,7 @@ jobs:
       - name: Upload JNI Library
         uses: actions/upload-artifact@v4
         with:
-          name: jni-library-${{ matrix.os }}
+          name: jni-library-${{ matrix.platforms.name }}
           path: |
             amazon-kinesis-video-streams-producer-sdk-cpp/build/libKinesisVideoProducerJNI.so
             amazon-kinesis-video-streams-producer-sdk-cpp/build/libKinesisVideoProducerJNI.dylib
@@ -119,10 +119,10 @@ jobs:
       fail-fast: false
 
     env:
-      TEST_STREAMS_PREFIX: producer-java-${{ matrix.os }}-java-${{ matrix.java }}_
+      TEST_STREAMS_PREFIX: producer-java-${{ matrix.platforms.os }}-java-${{ matrix.java }}_
       JNI_FOLDER: ${{ github.workspace }}/jni
 
-    runs-on: ${{ matrix.os }}
+    runs-on: ${{ matrix.platform.os }}
     permissions:
       id-token: write
       contents: read
@@ -141,7 +141,7 @@ jobs:
       - name: Download JNI Library
         uses: actions/download-artifact@v4
         with:
-          name: jni-library-${{ matrix.os }}
+          name: jni-library-${{ matrix.platform.os }}
           path: jni/
 
       - name: Build with Maven
@@ -167,10 +167,10 @@ jobs:
       fail-fast: false
 
     env:
-      STREAM_NAME: producer-java-${{ matrix.os }}-java-${{ matrix.java }}_${{ matrix.sample }}
+      STREAM_NAME: producer-java-${{ matrix.platform.os }}-java-${{ matrix.java }}_${{ matrix.sample }}
       JNI_FOLDER: ${{ github.workspace }}/jni
 
-    runs-on: ${{ matrix.os }}
+    runs-on: ${{ matrix.platform.os }}
     permissions:
       id-token: write
       contents: read
@@ -189,7 +189,7 @@ jobs:
       - name: Download JNI Library
         uses: actions/download-artifact@v4
         with:
-          name: jni-library-${{ matrix.os }}
+          name: jni-library-${{ matrix.platform.name }}
           path: jni/
 
       - name: Install dependencies (MacOS)
