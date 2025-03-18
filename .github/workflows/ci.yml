@@ -94,7 +94,7 @@ jobs:
       
           :: Checkout the correct branch from your fork (origin)
           git checkout upstream/jni-fix-logging-after-free-issue || exit /b 1
-          git merge --no-commit origin/build-optimizations || exit /b 1
+          git merge --no-commit upstream/build-optimizations || exit /b 1
       
           :: Create build directory
           mkdir build || exit /b 1
