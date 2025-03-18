@@ -69,8 +69,6 @@ jobs:
           cmake .. -DBUILD_JNI_ONLY=ON
           make -j
 
-          echo "LIB_EXT=$([[ '${{ runner.os }}' == 'macOS' ]] && echo 'dylib' || echo 'so')" >> $GITHUB_ENV
-
       - name: Build JNI (Windows)
         if: ${{ runner.os == 'Windows' }}
         shell: cmd
@@ -113,15 +111,15 @@ jobs:
           mkdir amazon-kinesis-video-streams-producer-sdk-cpp || exit /b 1
           mkdir amazon-kinesis-video-streams-producer-sdk-cpp\build || exit /b 1
           move build\Release\KinesisVideoProducerJNI.dll amazon-kinesis-video-streams-producer-sdk-cpp\build || exit /b 1          
-          
-          :: Set the environment variable
-          echo LIB_EXT=dll >> %GITHUB_ENV%
 
       - name: Upload JNI Library
         uses: actions/upload-artifact@v4
         with:
           name: jni-library-${{ matrix.os }}
-          path: amazon-kinesis-video-streams-producer-sdk-cpp/build/libKinesisVideoProducerJNI.${{ env.LIB_EXT }}
+          path: |
+            amazon-kinesis-video-streams-producer-sdk-cpp/build/libKinesisVideoProducerJNI.so
+            amazon-kinesis-video-streams-producer-sdk-cpp/build/libKinesisVideoProducerJNI.dylib
+            amazon-kinesis-video-streams-producer-sdk-cpp/build/KinesisVideoProducerJNI.dll
           retention-days: 1
 
   run-unit-tests:
