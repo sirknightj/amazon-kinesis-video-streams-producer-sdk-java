@@ -210,6 +210,7 @@ jobs:
             -Djava.library.path=${JNI_FOLDER} \
             -Dkvs-stream=$STREAM_NAME \
             -Dlog4j.configurationFile=log4j2.xml \
+            -Dstream-duration-ms=10000 \
             com.amazonaws.kinesisvideo.demoapp.${{ matrix.sample }} &
 
           SAMPLE_PID=$!

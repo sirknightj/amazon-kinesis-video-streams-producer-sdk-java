@@ -43,7 +43,7 @@ public final class DemoAppMain {
     private static final int END_FILE_INDEX = 375;
 
     private static final Duration DEFAULT_DURATION_TO_STREAM = Duration.ofSeconds(10);
-    private static final Duration DURATION_TO_STREAM = Optional.ofNullable(System.getProperty("stream-duration"))
+    private static final Duration DURATION_TO_STREAM = Optional.ofNullable(System.getProperty("stream-duration-ms"))
             .map(value -> {
                 try {
                     return Duration.ofMillis(Long.parseLong(value));
