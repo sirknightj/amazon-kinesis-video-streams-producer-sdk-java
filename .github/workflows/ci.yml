@@ -141,7 +141,7 @@ jobs:
       - name: Download JNI Library
         uses: actions/download-artifact@v4
         with:
-          name: jni-library-${{ matrix.platform.os }}
+          name: jni-library-${{ matrix.platform.name }}
           path: jni/
 
       - name: Build with Maven

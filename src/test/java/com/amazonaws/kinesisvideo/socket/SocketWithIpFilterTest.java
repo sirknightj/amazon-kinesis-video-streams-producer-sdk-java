@@ -5,11 +5,18 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
-import java.net.*;
+import java.net.Inet4Address;
+import java.net.Inet6Address;
+import java.net.InetAddress;
+import java.net.ServerSocket;
+import java.net.Socket;
+import java.net.URI;
 import java.util.Arrays;
 import java.util.Collection;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 
 @RunWith(Parameterized.class)
 public class SocketWithIpFilterTest {
@@ -41,9 +48,9 @@ public class SocketWithIpFilterTest {
 
     @Test
     public void testCreateSocket_WithIpFilter() throws Exception {
-        try (ServerSocket server = new ServerSocket(port)) {
-            URI uri = new URI("https://localhost:" + port);
-            Socket socket = new SocketFactory().createSocket(uri, ipVersionFilter);
+        try (final ServerSocket server = new ServerSocket(port)) {
+            final URI uri = new URI("https://localhost:" + port);
+            final Socket socket = new SocketFactory().createSocket(uri, ipVersionFilter);
 
             assertNotNull(socket);
             assertTrue(socket.isConnected());

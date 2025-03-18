@@ -18,4 +18,4 @@ public enum IPVersionFilter {
             return address instanceof Inet4Address || address instanceof Inet6Address;
         }
     }
-};
+}

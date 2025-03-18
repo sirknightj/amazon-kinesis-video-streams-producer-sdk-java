@@ -3,8 +3,17 @@ package com.amazonaws.kinesisvideo.socket;
 import org.junit.Test;
 
 import java.io.IOException;
-import java.net.*;
-import static org.junit.Assert.*;
+import java.net.ConnectException;
+import java.net.ServerSocket;
+import java.net.Socket;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.UnknownHostException;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 public class SocketFactoryTest {
 
@@ -15,8 +24,8 @@ public class SocketFactoryTest {
     @Test
     public void testCreateSocket_Http() throws Exception {
         try (final ServerSocket server = new ServerSocket(httpPort)) {
-            URI uri = new URI("http://localhost:" + httpPort);
-            Socket socket = socketFactory.createSocket(uri);
+            final URI uri = new URI("http://localhost:" + httpPort);
+            final Socket socket = socketFactory.createSocket(uri);
 
             assertNotNull(socket);
             assertTrue(socket.isConnected());
@@ -27,9 +36,9 @@ public class SocketFactoryTest {
 
     @Test
     public void testCreateSocket_Https() throws Exception {
-        try (ServerSocket server = new ServerSocket(httpsPort)) {
-            URI uri = new URI("https://localhost:" + httpsPort);
-            Socket socket = socketFactory.createSocket(uri);
+        try (final ServerSocket server = new ServerSocket(httpsPort)) {
+            final URI uri = new URI("https://localhost:" + httpsPort);
+            final Socket socket = socketFactory.createSocket(uri);
 
             assertNotNull(socket);
             assertTrue(socket.isConnected());
@@ -40,7 +49,7 @@ public class SocketFactoryTest {
 
     @Test
     public void testCreateSocket_InvalidURI() throws URISyntaxException, IOException {
-        try (Socket socket = socketFactory.createSocket(new URI("invalid://localhost"))) {
+        try (final Socket socket = socketFactory.createSocket(new URI("invalid://localhost"))) {
             fail("It should have thrown an exception");
         } catch (final RuntimeException e) {
             assertTrue(e.getCause() instanceof IllegalArgumentException);
@@ -49,7 +58,7 @@ public class SocketFactoryTest {
 
     @Test
     public void testCreateSocket_UnreachablePort() throws URISyntaxException, IOException {
-        try (Socket socket = socketFactory.createSocket(new URI("http://localhost:65535"))) {
+        try (final Socket socket = socketFactory.createSocket(new URI("http://localhost:65535"))) {
             fail("It should have thrown an exception");
         } catch (final RuntimeException e) {
             assertTrue(e.getCause() instanceof ConnectException);
@@ -58,7 +67,7 @@ public class SocketFactoryTest {
 
     @Test
     public void testCreateSocket_NonExistentDomain() throws URISyntaxException, IOException {
-        try (Socket socket = socketFactory.createSocket(new URI("http://nonexistent.example.com:80"))) {
+        try (final Socket socket = socketFactory.createSocket(new URI("http://nonexistent.example.com:80"))) {
             fail("It should have thrown an exception");
         } catch (final RuntimeException e) {
             assertTrue(e.getCause() instanceof UnknownHostException);

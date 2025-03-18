@@ -59,8 +59,6 @@ public final class DemoAppMain {
     }
 
     public static void main(final String[] args) {
-        Configurator.initialize(null, "./log4j2.xml");
-
         try {
             // create Kinesis Video high level client
             final KinesisVideoClient kinesisVideoClient = KinesisVideoJavaClientFactory

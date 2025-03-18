@@ -2,14 +2,11 @@ package com.amazonaws.kinesisvideo.common;
 
 import java.nio.ByteBuffer;
 
-import static com.amazonaws.kinesisvideo.internal.producer.jni.NativeKinesisVideoProducerJni.PRODUCER_NATIVE_LIBRARY_NAME;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
-import static org.junit.Assume.assumeTrue;
 
 import org.junit.Before;
-import org.junit.BeforeClass;
 import org.junit.Test;
 
 import com.amazonaws.kinesisvideo.producer.StreamInfo;

@@ -3,24 +3,25 @@ package com.amazonaws.kinesisvideo.http;
 import com.amazonaws.kinesisvideo.client.IPVersionFilter;
 import com.amazonaws.kinesisvideo.client.KinesisVideoClientConfigurationDefaults;
 import com.amazonaws.kinesisvideo.common.function.Consumer;
+import com.amazonaws.kinesisvideo.socket.SocketFactory;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import com.amazonaws.kinesisvideo.socket.SocketFactory;
 
-import static com.amazonaws.kinesisvideo.common.preconditions.Preconditions.checkNotNull;
 import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
-import java.net.*;
+import java.net.Socket;
+import java.net.URI;
 import java.nio.charset.Charset;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+
+import static com.amazonaws.kinesisvideo.common.preconditions.Preconditions.checkNotNull;
 
 public final class ParallelSimpleHttpClient implements HttpClient {
     private static final String SPACE = " ";
@@ -221,7 +222,7 @@ public final class ParallelSimpleHttpClient implements HttpClient {
         // TODO: Set to correct output channel
 
         private Builder() {
-            mHeaders = new HashMap<String, String>();
+            mHeaders = new HashMap<>();
             mSender = NO_OP_SENDER;
             mCompletion = NO_OP_COMPLETION;
             mIPVersionFilter = KinesisVideoClientConfigurationDefaults.BOTH_IPV4_AND_IPV6;

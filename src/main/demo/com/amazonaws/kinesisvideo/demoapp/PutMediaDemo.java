@@ -1,7 +1,5 @@
 package com.amazonaws.kinesisvideo.demoapp;
 
-import com.amazonaws.kinesisvideo.client.IPVersionFilter;
-import com.amazonaws.kinesisvideo.common.exception.KinesisVideoException;
 import com.amazonaws.kinesisvideo.demoapp.auth.AuthHelper;
 import com.amazonaws.services.kinesisvideo.AmazonKinesisVideo;
 import com.amazonaws.services.kinesisvideo.AmazonKinesisVideoAsyncClient;
@@ -15,11 +13,8 @@ import com.amazonaws.services.kinesisvideo.model.PutMediaRequest;
 
 import java.io.FileInputStream;
 import java.io.InputStream;
-import java.net.InetAddress;
 import java.net.URI;
-import java.net.UnknownHostException;
 import java.time.Instant;
-import java.util.Arrays;
 import java.util.Date;
 import java.util.concurrent.CountDownLatch;
 
@@ -50,7 +45,7 @@ public final class PutMediaDemo {
     private static final String PUT_MEDIA_API = "/putMedia";
 
     /* the name of the stream */
-    private static final String STREAM_NAME = "demo-stream";
+    private static final String STREAM_NAME = "my-stream";
 
     /* sample MKV file */
     private static final String MKV_FILE_PATH = "src/main/resources/data/mkv/clusters.mkv";

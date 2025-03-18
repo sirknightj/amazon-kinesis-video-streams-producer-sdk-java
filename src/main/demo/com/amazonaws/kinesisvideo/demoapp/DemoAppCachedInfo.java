@@ -71,8 +71,6 @@ public final class DemoAppCachedInfo {
     }
 
     public static void main(final String[] args) {
-        Configurator.initialize(null, "./log4j2.xml");
-
         try {
             final ScheduledExecutorService executor = Executors.newScheduledThreadPool(NUMBER_OF_THREADS_IN_POOL,
                     new ThreadFactoryBuilder().setNameFormat("KVS-JavaClientExecutor-%d").build());
