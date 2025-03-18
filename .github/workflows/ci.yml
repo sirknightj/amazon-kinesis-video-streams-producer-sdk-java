@@ -80,10 +80,17 @@ jobs:
           git clone https://github.com/awslabs/amazon-kinesis-video-streams-producer-sdk-cpp.git C:\work\producer || exit /b 1
           cd C:\work\producer || exit /b 1
       
-          :: Ensure all branches are available
-          git fetch --all || exit /b 1
+          :: Ensure the correct remote is being used
+          git remote -v
       
-          :: Checkout the branch
+          :: Fetch all branches from your fork
+          git fetch origin || exit /b 1
+      
+          :: If necessary, add upstream to track AWS repo (only needed if working with both fork + upstream)
+          git remote add upstream https://github.com/awslabs/amazon-kinesis-video-streams-producer-sdk-cpp.git 2>nul || echo "Upstream already exists"
+          git fetch upstream || echo "Could not fetch upstream"
+      
+          :: Checkout the correct branch from your fork (origin)
           git checkout jni-fix-logging-after-free-issue || exit /b 1
       
           :: Apply the patch safely (ignore if already applied)
