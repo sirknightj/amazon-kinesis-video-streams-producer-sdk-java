@@ -11,14 +11,33 @@ on:
       - master
 
 jobs:
+  load-matrix:
+    load-matrix:
+      runs-on: ubuntu-latest
+      outputs:
+        build_jni_matrix: ${{ steps.set-matrix.outputs.build_jni_matrix }}
+        unit_test_matrix: ${{ steps.set-matrix.outputs.unit_test_matrix }}
+        sample_matrix: ${{ steps.set-matrix.outputs.sample_matrix }}
+      steps:
+        - name: Checkout repository
+          uses: actions/checkout@v4
+
+        - name: Load matrix from YAML
+          run: |
+            MATRIX=$(yq eval '.matrix | explode(.)' .github/workflows/matrix.yaml -o=json)
+            
+            BUILD_JNI_MATRIX=$(echo "$MATRIX" | jq '{os: .os}')
+            UNIT_TEST_MATRIX=$(echo "$MATRIX" | jq '{os: .os, java: .java}')
+            SAMPLE_MATRIX=$MATRIX
+            
+            echo "build_jni_matrix=$BUILD_JNI_MATRIX" >> $GITHUB_OUTPUT
+            echo "unit_test_matrix=$UNIT_TEST_MATRIX" >> $GITHUB_OUTPUT
+            echo "sample_matrix=$SAMPLE_MATRIX" >> $GITHUB_OUTPUT
+
   build-jni:
+    needs: load-matrix
     strategy:
-      matrix:
-        os:
-          - macos-13
-          - macos-latest
-        java:
-          - 11
+      matrix: ${{ fromJson(needs.load-matrix.outputs.build_jni_matrix) }}
       fail-fast: false
 
     runs-on: ${{ matrix.os }}
@@ -63,14 +82,11 @@ jobs:
           retention-days: 1
 
   run-unit-tests:
-    needs: build-jni
+    needs:
+      - load-matrix
+      - build-jni
     strategy:
-      matrix:
-        os:
-          - macos-13
-          - macos-latest
-        java:
-          - 11
+      matrix: ${{ fromJson(needs.load-matrix.outputs.unit_test_matrix) }}
       fail-fast: false
 
     env:
@@ -127,17 +143,11 @@ jobs:
         shell: bash
 
   run-samples:
-    needs: build-jni
+    needs:
+     - load-matrix
+     - build-jni
     strategy:
-      matrix:
-        os:
-          - macos-13
-          - macos-latest
-        java:
-          - 11
-        sample:
-          - DemoAppMain
-          - DemoAppCachedInfo
+      matrix: ${{ fromJson(needs.load-matrix.outputs.sample_matrix) }}
       fail-fast: false
 
     env:

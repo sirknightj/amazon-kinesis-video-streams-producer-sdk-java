@@ -1,0 +1,9 @@
+matrix:
+  os:
+    - macos-13
+    - macos-latest
+  java:
+    - 11
+  sample:
+    - DemoAppMain
+    - DemoAppCachedInfo
