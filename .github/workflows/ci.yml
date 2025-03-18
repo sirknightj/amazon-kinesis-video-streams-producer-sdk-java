@@ -134,6 +134,7 @@ jobs:
 
     env:
       TEST_STREAMS_PREFIX: producer-java-${{ matrix.os }}-java-${{ matrix.java }}_
+      JNI_FOLDER: ${{ github.workspace }}/jni
 
     runs-on: ${{ matrix.os }}
     permissions:
@@ -156,20 +157,6 @@ jobs:
         with:
           name: jni-library-${{ matrix.os }}
           path: jni/
-
-      - name: Set JNI Folder Path
-        run: |
-          if [ "$RUNNER_OS" == "Linux" ]; then
-            echo "JNI_FOLDER=src/main/resources/lib/ubuntu/"
-          elif [ "$RUNNER_OS" == "Windows" ]; then
-            echo "JNI_FOLDER=src/main/resources/lib/windows/"
-          elif [ "$RUNNER_OS" == "macOS" ]; then
-            echo "JNI_FOLDER=$(pwd)/jni" >> $GITHUB_ENV
-          else
-            echo "$RUNNER_OS not supported"
-            exit 1
-          fi
-        shell: bash
 
       - name: Build with Maven
         run: mvn clean compile assembly:single
@@ -195,6 +182,7 @@ jobs:
 
     env:
       STREAM_NAME: producer-java-${{ matrix.os }}-java-${{ matrix.java }}_${{ matrix.sample }}
+      JNI_FOLDER: ${{ github.workspace }}/jni
 
     runs-on: ${{ matrix.os }}
     permissions:
@@ -217,14 +205,6 @@ jobs:
         with:
           name: jni-library-${{ matrix.os }}
           path: jni/
-
-      - name: Set JNI Folder Path
-        run: |
-          if [ ${{ matrix.os }} == 'macos-latest' ]; then
-            echo "JNI_FOLDER=$(pwd)/jni" >> $GITHUB_ENV
-          else
-            echo "JNI_FOLDER=$(pwd)/src/main/resources/lib/mac/" >> $GITHUB_ENV
-          fi
 
       - name: Install dependencies (MacOS)
         if: ${{ runner.os == 'macOS' }}
@@ -259,7 +239,7 @@ jobs:
 
         shell: bash
 
-      - name: Run the sample (Mac and Linux)
+      - name: Run the sample
         if: ${{ runner.os == 'macOS' || runner.os == 'linux' }}
         run: |
           set +e
