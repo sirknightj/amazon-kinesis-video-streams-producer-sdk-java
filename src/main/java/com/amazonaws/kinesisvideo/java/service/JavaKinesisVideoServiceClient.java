@@ -2,7 +2,6 @@ package com.amazonaws.kinesisvideo.java.service;
 
 import com.amazonaws.AmazonClientException;
 import com.amazonaws.ClientConfiguration;
-import com.amazonaws.DnsResolver;
 import com.amazonaws.Protocol;
 import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.AWSCredentialsProvider;
@@ -12,17 +11,15 @@ import com.amazonaws.kinesisvideo.auth.KinesisVideoCredentials;
 import com.amazonaws.kinesisvideo.auth.KinesisVideoCredentialsProvider;
 import com.amazonaws.kinesisvideo.client.IPVersionFilter;
 import com.amazonaws.kinesisvideo.client.KinesisVideoClientConfiguration;
-import com.amazonaws.kinesisvideo.client.KinesisVideoClientConfigurationDefaults;
 import com.amazonaws.kinesisvideo.client.PutMediaClient;
 import com.amazonaws.kinesisvideo.client.signing.KinesisVideoAWS4Signer;
 import com.amazonaws.kinesisvideo.common.exception.KinesisVideoException;
 import com.amazonaws.kinesisvideo.common.function.Consumer;
-import com.amazonaws.kinesisvideo.http.KvsFilteredDnsResolver;
-import org.apache.logging.log4j.Logger;
 import com.amazonaws.kinesisvideo.common.preconditions.Preconditions;
+import com.amazonaws.kinesisvideo.http.KvsFilteredDnsResolver;
+import com.amazonaws.kinesisvideo.internal.producer.client.KinesisVideoServiceClient;
 import com.amazonaws.kinesisvideo.producer.StreamDescription;
 import com.amazonaws.kinesisvideo.producer.StreamStatus;
-import com.amazonaws.kinesisvideo.internal.producer.client.KinesisVideoServiceClient;
 import com.amazonaws.kinesisvideo.util.VersionUtil;
 import com.amazonaws.regions.Region;
 import com.amazonaws.regions.Regions;
@@ -38,15 +35,14 @@ import com.amazonaws.services.kinesisvideo.model.GetDataEndpointRequest;
 import com.amazonaws.services.kinesisvideo.model.GetDataEndpointResult;
 import com.amazonaws.services.kinesisvideo.model.TagStreamRequest;
 import com.amazonaws.services.kinesisvideo.model.TagStreamResult;
+import org.apache.logging.log4j.Logger;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.InputStream;
-import java.net.*;
-import java.util.Arrays;
+import java.net.URI;
 import java.util.Date;
 import java.util.Map;
-import java.util.function.Predicate;
 
 import static com.amazonaws.ClientConfiguration.DEFAULT_MAX_CONNECTIONS;
 import static com.amazonaws.kinesisvideo.producer.Time.HUNDREDS_OF_NANOS_IN_AN_HOUR;
@@ -59,17 +55,6 @@ public final class JavaKinesisVideoServiceClient implements KinesisVideoServiceC
 
     private final Logger log;
     private KinesisVideoClientConfiguration configuration;
-
-//    private static AmazonKinesisVideo createAmazonKinesisVideoClient(
-//            final KinesisVideoCredentialsProvider credentialsProvider,
-//            final Region region,
-//            final String endpoint,
-//            final int timeoutInMillis)
-//            throws KinesisVideoException {
-//
-//        final AWSCredentials credentials = createAwsCredentials(credentialsProvider);
-//        return createAwsKinesisVideoClient(credentials, region, endpoint, timeoutInMillis);
-//    }
 
     private static AmazonKinesisVideo createAmazonKinesisVideoClient(
             final KinesisVideoCredentialsProvider credentialsProvider,
@@ -93,15 +78,6 @@ public final class JavaKinesisVideoServiceClient implements KinesisVideoServiceC
         final AWSCredentials credentials = awsCredentialsProvider.getCredentials();
         return createAwsKinesisVideoClient(credentials, region, endpoint, timeoutInMillis, null);
     }
-//
-//    private static AmazonKinesisVideo createAwsKinesisVideoClient(final AWSCredentials credentials,
-//                                                                  final Region region,
-//                                                                  final String endpoint,
-//                                                                  final int timeoutInMillis)
-//            throws KinesisVideoException {
-//
-//        return createAwsKinesisVideoClient(credentials, region, endpoint, timeoutInMillis, KinesisVideoClientConfigurationDefaults.BOTH_IPV4_AND_IPV6);
-//    }
 
     private static AmazonKinesisVideo createAwsKinesisVideoClient(final AWSCredentials credentials,
                                                                   final Region region,
