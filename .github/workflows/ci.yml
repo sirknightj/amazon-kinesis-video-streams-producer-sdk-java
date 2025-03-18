@@ -76,22 +76,34 @@ jobs:
         shell: cmd
         run: |
           :: Create a shorter directory to avoid long path issues
-          mkdir C:\work
-          git clone https://github.com/awslabs/amazon-kinesis-video-streams-producer-sdk-cpp.git C:\work\producer
-          cd C:\work\producer
-
-          git checkout jni-fix-logging-after-free-issue
-          git diff origin/jni-fix-logging-after-free-issue..origin/build-optimizations | git apply
-          mkdir build
-          cd build
-          cmake .. -DBUILD_JNI_ONLY=ON -G "Visual Studio 17 2022"
-          cmake --build . --config Release
-
-          cd "$GITHUB_WORKSPACE"
-          mkdir -p amazon-kinesis-video-streams-producer-sdk-cpp\build
-          mv C:\work\producer\build\libKinesisVideoProducerJNI.dll .\amazon-kinesis-video-streams-producer-sdk-cpp\build
-
-          echo "LIB_EXT=dll" >> $GITHUB_ENV
+          mkdir C:\work || exit /b 1
+          git clone https://github.com/awslabs/amazon-kinesis-video-streams-producer-sdk-cpp.git C:\work\producer || exit /b 1
+          cd C:\work\producer || exit /b 1
+      
+          :: Ensure all branches are available
+          git fetch --all || exit /b 1
+      
+          :: Checkout the branch
+          git checkout jni-fix-logging-after-free-issue || exit /b 1
+      
+          :: Apply the patch safely (ignore if already applied)
+          git diff origin/jni-fix-logging-after-free-issue..origin/build-optimizations | git apply || echo "Patch not applied, maybe already merged"
+      
+          :: Create build directory
+          mkdir build || exit /b 1
+          cd build || exit /b 1
+      
+          :: Run CMake with the correct path
+          cmake .. -DBUILD_JNI_ONLY=ON -G "Visual Studio 17 2022" || exit /b 1
+          cmake --build . --config Release || exit /b 1
+      
+          :: Move the compiled library to the expected location
+          cd "%GITHUB_WORKSPACE%" || exit /b 1
+          mkdir amazon-kinesis-video-streams-producer-sdk-cpp\build || exit /b 1
+          move C:\work\producer\build\Release\libKinesisVideoProducerJNI.dll amazon-kinesis-video-streams-producer-sdk-cpp\build || exit /b 1
+      
+          :: Set the environment variable
+          echo "LIB_EXT=dll" >> %GITHUB_ENV%
 
       - name: Upload JNI Library
         uses: actions/upload-artifact@v4
