@@ -26,8 +26,8 @@ jobs:
         run: |
           MATRIX=$(yq eval '.matrix | explode(.)' .github/matrix.yaml -o=json)
 
-          BUILD_JNI_MATRIX=$(echo "$MATRIX" | jq '{os: .os}')
-          UNIT_TEST_MATRIX=$(echo "$MATRIX" | jq '{os: .os, java: .java}')
+          BUILD_JNI_MATRIX=$(echo "$MATRIX" | jq -c '{os: .os}')
+          UNIT_TEST_MATRIX=$(echo "$MATRIX" | jq -c '{os: .os, java: .java}')
           SAMPLE_MATRIX=$(echo "$MATRIX" | jq -c '.')
 
           echo "build_jni_matrix=$BUILD_JNI_MATRIX" >> $GITHUB_OUTPUT
