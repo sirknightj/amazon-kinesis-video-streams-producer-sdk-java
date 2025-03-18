@@ -107,6 +107,10 @@ jobs:
           cmake --build . --config Release --verbose || exit /b 1
           
           dir
+          
+          dir x64
+          
+          dir Release
       
           :: Move the compiled library to the expected location
           cd "%GITHUB_WORKSPACE%" || exit /b 1
