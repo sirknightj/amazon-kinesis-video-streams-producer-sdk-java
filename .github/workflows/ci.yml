@@ -83,22 +83,22 @@ jobs:
           )
 
           cd D:\work\producer || exit /b 1
-      
+
           :: Create build directory
           mkdir build || exit /b 1
           cd build || exit /b 1
-      
+
           :: Run CMake with the correct path
           cmake .. -DBUILD_JNI_ONLY=ON -G "Visual Studio 17 2022" || exit /b 1
           cmake --build . --config Release --verbose || exit /b 1
-      
+
           :: Move the compiled library to the expected location
           :: Note: Using Visual Studio generator, the output file gets put in Release\KinesisVideoProducerJNI.dll
           :: rather than in the build folder directly
           cd "%GITHUB_WORKSPACE%" || exit /b 1
           mkdir amazon-kinesis-video-streams-producer-sdk-cpp || exit /b 1
           mkdir amazon-kinesis-video-streams-producer-sdk-cpp\build || exit /b 1
-          move D:\work\producer\build\Release\KinesisVideoProducerJNI.dll amazon-kinesis-video-streams-producer-sdk-cpp\build || exit /b 1          
+          move D:\work\producer\build\Release\KinesisVideoProducerJNI.dll amazon-kinesis-video-streams-producer-sdk-cpp\build || exit /b 1
 
       - name: Upload JNI Library
         uses: actions/upload-artifact@v4
@@ -238,7 +238,7 @@ jobs:
           fi
 
           echo "Using JAR file: $JAR_FILE"
-          
+
           # Use gtimeout on macOS and timeout on Linux
           if [ "${{ runner.os }}" == "macOS" ]; then
             TIMEOUT_CMD="gtimeout"
@@ -276,16 +276,16 @@ jobs:
         shell: cmd
         run: |
           for /f "delims=" %%F in ('dir /b /s target\*jar-with-dependencies.jar') do set JAR_FILE=%%F
-          
+
           if not defined JAR_FILE (
             echo Error: JAR file not found!
             exit /b 1
           )
-          
+
           echo Using JAR file: %JAR_FILE%
-          
+
           timeout /t 30 /nobreak && exit /b 124
-          
+
           java -classpath "%JAR_FILE%" ^
             -Daws.accessKeyId=%AWS_ACCESS_KEY_ID% ^
             -Daws.secretKey=%AWS_SECRET_ACCESS_KEY% ^
@@ -294,8 +294,8 @@ jobs:
             -Dkvs-stream=%STREAM_NAME% ^
             -Dlog4j.configurationFile=log4j2.xml ^
             com.amazonaws.kinesisvideo.demoapp.${{ matrix.sample }}
-          
+
           set EXIT_CODE=%ERRORLEVEL%
-          
+
           echo Process exited with code: %EXIT_CODE%
           exit /b %EXIT_CODE%
