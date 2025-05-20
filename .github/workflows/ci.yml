@@ -169,6 +169,19 @@ jobs:
           distribution: 'adopt'
           cache: maven
 
+      - name: Set up Python 3.12
+        if: ${{ runner.os == 'macOS' || runner.os == 'linux' }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Python dependencies
+        if: ${{ runner.os == 'macOS' || runner.os == 'linux' }}
+        working-directory: scripts/python
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
       - name: Download JNI Library
         uses: actions/download-artifact@v4
         with:
@@ -236,8 +249,12 @@ jobs:
             -Djava.library.path=${JNI_FOLDER} \
             -Dkvs-stream=$STREAM_NAME \
             -Dlog4j.configurationFile=log4j2.xml \
-            com.amazonaws.kinesisvideo.demoapp.${{ matrix.sample }}
+            com.amazonaws.kinesisvideo.demoapp.${{ matrix.sample }} &
+          JAVA_PID=$!
+          
+          python ./scripts/python/capture-rss-and-cpu.py $JAVA_PID &
 
+          wait $JAVA_PID
           EXIT_CODE=$?
 
           set -e
@@ -282,3 +299,22 @@ jobs:
 
           echo Process exited with code: %EXIT_CODE%
           exit /b %EXIT_CODE%
+
+      - name: Generate memory and CPU graph (Mac and Linux)
+        if: ${{ runner.os == 'macOS' || runner.os == 'linux' }}
+        run: |
+          DATA_FILE=$(find . -name 'process_*.txt' | head -n 1)
+          COMMIT_HASH=$(git rev-parse --short HEAD)
+          python ./scripts/python/rss-plotter.py "$DATA_FILE" \
+            --title "Memory and CPU Usage (${{ matrix.sample }} @ ${COMMIT_HASH})" \
+            --output "${{ env.STREAM_NAME }}-mem-cpu.png"
+
+        shell: bash
+
+      - name: Upload memory and CPU graph (Mac and Linux)
+        if: ${{ runner.os == 'macOS' || runner.os == 'linux' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.STREAM_NAME }}-mem-cpu.png
+          path: ${{ env.STREAM_NAME }}-mem-cpu.png
+          retention-days: 7
