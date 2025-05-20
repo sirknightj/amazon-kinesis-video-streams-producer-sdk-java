@@ -188,11 +188,6 @@ jobs:
           name: jni-library-${{ matrix.platform.name }}
           path: jni/
 
-      - name: Install dependencies (MacOS)
-        if: ${{ runner.os == 'macOS' }}
-        run: |
-          brew install coreutils # For `gtimeout`
-
       - name: Build with Maven
         run: mvn clean compile assembly:single
 
@@ -234,15 +229,7 @@ jobs:
           fi
 
           echo "Using JAR file: $JAR_FILE"
-
-          # Use gtimeout on macOS and timeout on Linux
-          if [ "${{ runner.os }}" == "macOS" ]; then
-            TIMEOUT_CMD="gtimeout"
-          else
-            TIMEOUT_CMD="timeout"
-          fi
-
-          $TIMEOUT_CMD 30s java -classpath "$JAR_FILE" \
+          java -classpath "$JAR_FILE" \
             -Daws.accessKeyId=${AWS_ACCESS_KEY_ID} \
             -Daws.secretKey=${AWS_SECRET_ACCESS_KEY} \
             -Daws.sessionToken=${AWS_SESSION_TOKEN} \
@@ -253,9 +240,24 @@ jobs:
           JAVA_PID=$!
           
           python ./scripts/python/capture-rss-and-cpu.py $JAVA_PID &
+          MONITOR_PID=$!
+          
+          # Wait for maximum 30 seconds
+          TIMEOUT=30
+          for ((i=1; i<=TIMEOUT; i++)); do
+            if ! kill -0 $JAVA_PID 2>/dev/null; then
+              break
+            fi
+            sleep 1
+            if [ $i -eq $TIMEOUT ]; then
+              # Time's up, kill the process
+              kill -9 $JAVA_PID
+            fi
+          done
 
           wait $JAVA_PID
           EXIT_CODE=$?
+          wait $MONITOR_PID
 
           set -e
 
