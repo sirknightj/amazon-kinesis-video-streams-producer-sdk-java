@@ -197,7 +197,7 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
           aws-region: ${{ secrets.AWS_REGION }}
 
-      - name: Create the stream (DemoAppCachedInfo)
+      - name: Create the stream (DemoAppMain)
         # This sample needs a pre-created stream: `${NAME}`
         if: ${{ matrix.sample == 'DemoAppMain' }}
         working-directory: scripts
@@ -239,7 +239,7 @@ jobs:
             com.amazonaws.kinesisvideo.demoapp.${{ matrix.sample }} &
           JAVA_PID=$!
           
-          python ./scripts/python/capture-rss-and-cpu.py $JAVA_PID &
+          python ./scripts/python/capture_rss_and_cpu.py $JAVA_PID &
           MONITOR_PID=$!
           
           # Wait for maximum 30 seconds
@@ -307,7 +307,7 @@ jobs:
         run: |
           DATA_FILE=$(find . -name 'process_*.txt' | head -n 1)
           COMMIT_HASH=$(git rev-parse --short HEAD)
-          python ./scripts/python/rss-plotter.py "$DATA_FILE" \
+          python ./scripts/python/plot_rss_and_cpu.py "$DATA_FILE" \
             --title "Memory and CPU Usage (${{ matrix.sample }} @ ${COMMIT_HASH})" \
             --output "${{ env.STREAM_NAME }}-mem-cpu.png"
 

@@ -1,13 +1,13 @@
+import argparse
+from datetime import datetime
+import logging
 import os
 from typing import List, Tuple, Optional
 
 import matplotlib.pyplot as plt
-import datetime
-import numpy as np
-import argparse
-import logging
-
 from matplotlib.colors import TABLEAU_COLORS
+import numpy as np
+
 
 blue_color = TABLEAU_COLORS['tab:blue']
 orange_color = TABLEAU_COLORS['tab:orange']
@@ -27,7 +27,7 @@ def parse_rss_file(file_path: str) -> Tuple[np.array, np.array, np.array]:
     cpu_values = []
     start_time = None
 
-    with open(file_path, 'r') as file:
+    with open(file_path, 'r', encoding='utf-8') as file:
         for line in file:
             try:
                 # Skip the header line: 'Timestamp,RAM (KB),CPU (%)'
@@ -86,7 +86,7 @@ def plot_rss_and_cpu(data_set: Tuple[np.ndarray, np.ndarray, np.ndarray, str],
         y_min: Minimum value for y-axis
         y_max: Maximum value for y-axis
     """
-    fig, ax1 = plt.subplots(figsize=(12, 6))
+    _, ax1 = plt.subplots(figsize=(12, 6))
     ax2 = ax1.twinx()
 
     alpha = 0.5
@@ -102,11 +102,13 @@ def plot_rss_and_cpu(data_set: Tuple[np.ndarray, np.ndarray, np.ndarray, str],
 
     # Plot RSS on left y-axis
     plot_label = f'{label} RSS'
-    ax1.plot(times, rss_values, marker=marker, linestyle='-', color=blue_color, alpha=alpha, label=plot_label)
+    ax1.plot(times, rss_values,
+             marker=marker, linestyle='-', color=blue_color, alpha=alpha, label=plot_label)
 
     # Plot CPU on right y-axis
     cpu_label = f'{label} CPU%'
-    ax2.plot(times, cpu_values, marker=marker, linestyle='--', color=orange_color, alpha=alpha, label=cpu_label)
+    ax2.plot(times, cpu_values,
+             marker=marker, linestyle='--', color=orange_color, alpha=alpha, label=cpu_label)
 
     plt.title(title.replace('\\n', '\n'), fontsize='x-large')
     ax1.set_xlabel('Time (seconds since start)', fontsize='large')
@@ -147,21 +149,28 @@ def plot_rss_and_cpu(data_set: Tuple[np.ndarray, np.ndarray, np.ndarray, str],
             ]
 
             if y_min is not None:
-                label_positions.append((y_min + 0.1 * y_range, 'baseline'))  # Just above y-min
+                # Just above y-min
+                label_positions.append((y_min + 0.1 * y_range, 'baseline'))
 
             if y_max is not None:
-                label_positions.append((y_max - 0.1 * y_range, 'center_baseline'))  # Just below y-max
+                # Just below y-max
+                label_positions.append((y_max - 0.1 * y_range, 'center_baseline'))
 
             # Choose the position furthest from the nearest data point
-            label_y, vertical_alignment = max(label_positions, key=lambda y: abs(y[0] - nearest_value))
+            label_y, vertical_alignment = max(label_positions,
+                                              key=lambda y: abs(y[0] - nearest_value))
 
             ax1.text(time, label_y, label,
                      rotation=90,
                      verticalalignment=vertical_alignment,
                      horizontalalignment='center',
-                     bbox=dict(facecolor='white', alpha=0.7, edgecolor='none'))
+                     bbox={"facecolor": 'white', "alpha": 0.7, "edgecolor": 'none'})
 
-    plt.gca().xaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: str(datetime.timedelta(seconds=int(x)))))
+    plt.gca().xaxis.set_major_formatter(
+        plt.FuncFormatter(
+            lambda x, _: str(datetime.timedelta(seconds=int(x)))
+        )
+    )
 
     lgd1 = ax1.legend(loc='upper center', bbox_to_anchor=(0.3, -0.1))
     lgd2 = ax2.legend(loc='upper center', bbox_to_anchor=(0.7, -0.1))
@@ -186,18 +195,24 @@ def main():
     parser = argparse.ArgumentParser(description='Plot RSS memory usage over time.')
     parser.add_argument('data_file', help='Input file')
     parser.add_argument('--output', '-o',
-                        help='Path to save the output plot (default: None, example: rss_memory_usage_plot.png)')
+                        help='Path to save the output plot (default: None, '
+                             'example: rss_memory_usage_plot.png)')
     parser.add_argument('--title', '-t', default='RSS and CPU Memory Usage Over Time',
                         help='Title for the graph (default: "Memory and CPU Usage Over Time")')
     parser.add_argument('--key-points', '-k', nargs=2, action='append',
                         metavar=('TIME', 'LABEL'),
-                        help='Key points (in seconds) to mark with vertical labels. Can be used multiple times.')
-    parser.add_argument('--y-min', type=int, help='Minimum value for y-axis')
-    parser.add_argument('--y-max', type=int, help='Maximum value for y-axis')
-    parser.add_argument('--x-max', type=int, help='Maximum value for x-axis (seconds).')
+                        help='Key points (in seconds) to mark with vertical labels. '
+                             'Can be used multiple times.')
+    parser.add_argument('--y-min',
+                        type=int, help='Minimum value for y-axis')
+    parser.add_argument('--y-max',
+                        type=int, help='Maximum value for y-axis')
+    parser.add_argument('--x-max',
+                        type=int, help='Maximum value for x-axis (seconds).')
 
     parser.add_argument('--same-color', action='store_true',
-                        help='Plot all files with the same color and lower opacity with a single legend label')
+                        help='Plot all files with the same color and lower '
+                             'opacity with a single legend label')
 
     args = parser.parse_args()
 

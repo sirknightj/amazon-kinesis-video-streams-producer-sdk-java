@@ -12,9 +12,9 @@ import csv
 import os
 import sys
 import time
-from datetime import datetime
 
-import psutil
+from datetime import datetime
+from psutil import Process, NoSuchProcess, pid_exists
 
 
 class ProcessMonitor:
@@ -40,14 +40,14 @@ class ProcessMonitor:
             tuple: (timestamp, memory_mb, cpu_percent) or None if process not found
         """
         try:
-            process = psutil.Process(self.pid)
+            process = Process(self.pid)
             cpu_percent = process.cpu_percent(interval=0.1)
             memory_kb = process.memory_info().rss / 1024
             timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
 
             return timestamp, memory_kb, cpu_percent
 
-        except psutil.NoSuchProcess:
+        except NoSuchProcess:
             print(f"Process with PID {self.pid} no longer exists")
             return None
         except Exception as e:
@@ -63,7 +63,7 @@ class ProcessMonitor:
         """
         file_exists = os.path.isfile(self.output_file)
 
-        with open(self.output_file, 'a', newline='') as csvfile:
+        with open(self.output_file, 'a', newline='', encoding='utf-8') as csvfile:
             writer = csv.writer(csvfile)
 
             if not file_exists:
@@ -129,7 +129,7 @@ def validate_args(args: argparse.Namespace) -> None:
     Raises an error if any of the args are invalid.
     """
     # Validate PID
-    if not psutil.pid_exists(args.pid):
+    if not pid_exists(args.pid):
         raise ValueError(f"Error: Process with PID {args.pid} does not exist")
 
     # Validate interval
