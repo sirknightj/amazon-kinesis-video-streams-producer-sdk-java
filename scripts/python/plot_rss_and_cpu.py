@@ -1,5 +1,5 @@
 import argparse
-from datetime import datetime
+from datetime import timedelta
 import logging
 import os
 from typing import List, Tuple, Optional
@@ -41,7 +41,7 @@ def parse_rss_file(file_path: str) -> Tuple[np.array, np.array, np.array]:
                     timestamp_str = timestamp_str.split(' ')[1]
 
                 h, m, s = map(float, timestamp_str.split(':'))
-                current_time = datetime.timedelta(hours=h, minutes=m, seconds=s)
+                current_time = timedelta(hours=h, minutes=m, seconds=s)
 
                 if start_time is None:
                     start_time = current_time
@@ -67,6 +67,26 @@ def parse_rss_file(file_path: str) -> Tuple[np.array, np.array, np.array]:
     return np.asarray(times), np.asarray(rss_values), np.asarray(cpu_values)
 
 
+def convert_memory_units(memory_values: np.ndarray) -> Tuple[np.ndarray, str]:
+    """
+    Convert memory values to appropriate units (KiB, MiB, or GiB).
+
+    Args:
+        memory_values: Array of memory values in KiB
+
+    Returns:
+        Tuple of (converted values, unit string)
+    """
+    max_value = np.max(memory_values)
+
+    if max_value > 1024 * 1024:  # More than 1 GiB
+        return memory_values / (1024 * 1024), 'GiB'
+    elif max_value > 1024:  # More than 1 MiB
+        return memory_values / 1024, 'MiB'
+    else:
+        return memory_values, 'KiB'
+
+
 def plot_rss_and_cpu(data_set: Tuple[np.ndarray, np.ndarray, np.ndarray, str],
                      key_points: Optional[List[Tuple[float, str]]] = None,
                      save_path: Optional[str] = None,
@@ -86,13 +106,15 @@ def plot_rss_and_cpu(data_set: Tuple[np.ndarray, np.ndarray, np.ndarray, str],
         y_min: Minimum value for y-axis
         y_max: Maximum value for y-axis
     """
-    _, ax1 = plt.subplots(figsize=(12, 6))
+    fig, ax1 = plt.subplots(figsize=(12, 6))
     ax2 = ax1.twinx()
 
     alpha = 0.5
     marker = None
 
     times, rss_values, cpu_values, label = data_set
+
+    converted_rss, rss_unit = convert_memory_units(rss_values)
 
     if x_max is not None:
         # Truncate data beyond the maximum x-value
@@ -102,7 +124,7 @@ def plot_rss_and_cpu(data_set: Tuple[np.ndarray, np.ndarray, np.ndarray, str],
 
     # Plot RSS on left y-axis
     plot_label = f'{label} RSS'
-    ax1.plot(times, rss_values,
+    ax1.plot(times, converted_rss,
              marker=marker, linestyle='-', color=blue_color, alpha=alpha, label=plot_label)
 
     # Plot CPU on right y-axis
@@ -112,7 +134,7 @@ def plot_rss_and_cpu(data_set: Tuple[np.ndarray, np.ndarray, np.ndarray, str],
 
     plt.title(title.replace('\\n', '\n'), fontsize='x-large')
     ax1.set_xlabel('Time (seconds since start)', fontsize='large')
-    ax1.set_ylabel('RSS (KiB) (1024 KiB = 1 MiB)', fontsize='large', color=blue_color)
+    ax1.set_ylabel(f'RSS ({rss_unit})', fontsize='large', color=blue_color)
     ax2.set_ylabel('CPU %', fontsize='large', color=orange_color)
 
     # Set grid
@@ -168,13 +190,13 @@ def plot_rss_and_cpu(data_set: Tuple[np.ndarray, np.ndarray, np.ndarray, str],
 
     plt.gca().xaxis.set_major_formatter(
         plt.FuncFormatter(
-            lambda x, _: str(datetime.timedelta(seconds=int(x)))
+            lambda x, _: str(timedelta(seconds=int(x)))
         )
     )
 
-    lgd1 = ax1.legend(loc='upper center', bbox_to_anchor=(0.3, -0.1))
-    lgd2 = ax2.legend(loc='upper center', bbox_to_anchor=(0.7, -0.1))
-    plt.tight_layout()
+    plt.subplots_adjust(bottom=0.2)  # Adding space for the legend
+    lgd1 = ax1.legend(loc='upper center', bbox_to_anchor=(0.3, -0.15))
+    lgd2 = ax2.legend(loc='upper center', bbox_to_anchor=(0.7, -0.15))
 
     if save_path:
         plt.savefig(save_path, bbox_extra_artists=(lgd1, lgd2), bbox_inches='tight')
