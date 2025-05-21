@@ -308,7 +308,7 @@ jobs:
           DATA_FILE=$(find . -name 'process_*.txt' | head -n 1)
           COMMIT_HASH=$(git rev-parse --short HEAD)
           python ./scripts/python/plot_rss_and_cpu.py "$DATA_FILE" \
-            --title "Memory and CPU Usage (${{ matrix.sample }} @ ${COMMIT_HASH})" \
+            --title "Memory and CPU Usage (${{ matrix.sample }} @ ${COMMIT_HASH})\n${{ matrix.platform.os }}, Java ${{ matrix.java }}" \
             --output "${{ env.STREAM_NAME }}-mem-cpu.png"
 
         shell: bash
