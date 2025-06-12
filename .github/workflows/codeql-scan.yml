@@ -21,6 +21,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Build project
+        run: |
+          mvn clean compile assembly:single
+
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v3
         with:
