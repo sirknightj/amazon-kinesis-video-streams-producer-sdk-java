@@ -258,6 +258,9 @@ def plot_data(datasets: List[Tuple[str, np.array, np.array]],
                 window_indices = np.where(np.abs(x_values - x_val) <= window)[0]
                 window_values.extend(y_values[window_indices])
 
+            if convert_memory:
+                window_values = [value / conversion_factor for value in window_values]
+
             # Define possible positions from center outward
             positions = [
                 (y_min_plot + 0.5 * usable_range, 'center'),
