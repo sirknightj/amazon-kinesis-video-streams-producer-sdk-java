@@ -202,7 +202,8 @@ jobs:
             -o total-rss.png \
             --zero-start \
             --zero-end \
-            "${KEY_POINTS}"
+            --y-min 0 \
+            ${KEY_POINTS}
           
           python ./scripts/python/benchmarking/csv_plotter.py "*metrics.txt" \
             --x-column "Timestamp" \
@@ -213,7 +214,8 @@ jobs:
             -o total-rss.png \
             --zero-start \
             --zero-end \
-            "${KEY_POINTS}"
+            --y-min 0 \
+            ${KEY_POINTS}
         shell: bash
 
       - name: Gather artifacts
