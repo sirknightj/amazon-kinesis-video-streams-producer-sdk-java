@@ -29,6 +29,10 @@ jobs:
       WAIT_BETWEEN_SPAWNING_MS: 10000
       OUTPUT_ARTIFACTS_NAME: artifacts
 
+    permissions:
+      id-token: write
+      contents: read
+
     steps:
       - name: Checkout the repository
         uses: actions/checkout@v4
