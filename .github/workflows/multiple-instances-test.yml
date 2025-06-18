@@ -16,7 +16,7 @@ concurrency:
 
 jobs:
   spawn-multiple-instances:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     # This job will spawn STREAM_COUNT instances of the jar
     # while waiting WAIT_BETWEEN_SPAWNING_MS between jar's.
@@ -182,9 +182,11 @@ jobs:
 
             # Handle singular/plural form
             if [ "$POSITION" -eq 1 ]; then
-              KEY_POINTS+=(--key-points "${SECS_MARK}" "${POSITION} stream")
+              LABEL="${POSITION} Stream"
+              KEY_POINTS+=(--key-points "${SECS_MARK}" "${LABEL}")
             else
-              KEY_POINTS+=(--key-points "${SECS_MARK}" "${POSITION} streams")
+              LABEL="${POSITION} Streams"
+              KEY_POINTS+=(--key-points "${SECS_MARK}" "${LABEL}")
             fi
           done
 
@@ -203,7 +205,7 @@ jobs:
             --y-column "RAM (KB)" \
             --x-label "Elapsed Duration" \
             --y-label "RSS" \
-            --title "RSS over time for different processes running a single client with a single stream\n(total: ${STREAM_COUNT} clients, streams, and processes) in the same machine\n(DemoAppMainWithHeapTracking @ ${COMMIT_HASH})" \
+            --title "RSS over time for different processes running a single client with a single stream\n(total: ${STREAM_COUNT} clients, streams, and processes) in the same machine\n(DemoAppMainWithHeapTracking @ ${COMMIT_HASH})\nUbuntu 24.04" \
             --convert-memory \
             -o total-rss.png \
             --zero-start \
