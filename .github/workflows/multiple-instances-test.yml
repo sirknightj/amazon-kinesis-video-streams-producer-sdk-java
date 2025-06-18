@@ -101,8 +101,7 @@ jobs:
           python ./scripts/python/benchmarking/capture_rss_and_cpu.py &
           WHOLE_SYSTEM_MONITORING_PID=$!
 
-          or i in {1..${STREAM_COUNT}}
-          do
+          for i in {1..${STREAM_COUNT}}; do
             # Calculating running duration for this instance - to finish at the same time
             # Formula: (STREAM_COUNT - i) * WAIT_BETWEEN_SPAWNING_MS + HOLD_PERIOD_MS
             DURATION_MS=$(( (STREAM_COUNT - i) * WAIT_BETWEEN_SPAWNING_MS + HOLD_PERIOD_MS ))
