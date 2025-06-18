@@ -192,11 +192,7 @@ jobs:
 
           # Add the final stream label
           FINAL_TIME_SECS=$(( (STREAM_COUNT - 1) * (WAIT_BETWEEN_SPAWNING_MS/ 1000) + 1 ))
-          KEY_POINTS+=(--key-points "${FINAL_TIME_SECS}" "${STREAM_COUNT} streams")
-
-          # Add the final stream label
-          FINAL_TIME_SECS=$(( (STREAM_COUNT - 1) * (WAIT_BETWEEN_SPAWNING_MS/ 1000) + 1 ))
-          KEY_POINTS="${KEY_POINTS} --key-points ${FINAL_TIME_SECS} '${STREAM_COUNT} streams'"   
+          KEY_POINTS+=(--key-points "${FINAL_TIME_SECS}" "${STREAM_COUNT} streams") 
 
           set -x
 
