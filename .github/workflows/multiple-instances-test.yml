@@ -151,11 +151,32 @@ jobs:
 
         shell: bash
 
+      - name: Generate graphs
+        run: |
+          COMMIT_HASH=$(git rev-parse --short HEAD)
+          DATA_FILES=""
+          for i in $(seq 1 "${STREAM_COUNT}"); do
+            DATA_FILES="${DATA_FILES} ./memory-data-stream-${i}.csv"
+          done
+          
+          python ./scripts/python/benchmarking/csv_plotter.py "${DATA_FILES}" \
+            --x-column "Timestamp" \
+            --y-column "Malloc Usage (Bytes)" \
+            --x-label "Elapsed duration" \
+            --y-label "Malloc Usage" \
+            --convert-memory \
+            --title "Malloc usage over time (DemoAppMainWithHeapTracking @ ${COMMIT_HASH})" \
+            --zero-start \
+            --zero-end \
+            -o "malloc-usage.png"
+        shell: bash
+
       - name: Gather artifacts
         run: |
           mkdir output
           mv *.csv output
           mv *_metrics.txt output
+          mv *.png output
 
         shell: bash
 

@@ -8,8 +8,6 @@ from matplotlib.colors import TABLEAU_COLORS
 import numpy as np
 import pandas as pd
 
-blue_color = TABLEAU_COLORS['tab:blue']
-orange_color = TABLEAU_COLORS['tab:orange']
 green_color = TABLEAU_COLORS['tab:green']
 
 logger = logging.getLogger(__name__)
@@ -40,7 +38,7 @@ def get_column_reference(df: pd.DataFrame, column_spec: str) -> str:
 
 
 def parse_csv_columns(file_path: str, x_column: str, y_column: str,
-                      zero_start: bool = False, zero_end: bool = False) -> Tuple[np.array, np.array]:
+                      zero_start: bool = False, zero_end: bool = False) -> Tuple[np.array, np.array, Optional[pd.Timestamp]]:
     """
     Parse specified columns from a CSV file.
     If x_column contains timestamps, converts them to duration from first timestamp.
@@ -59,6 +57,7 @@ def parse_csv_columns(file_path: str, x_column: str, y_column: str,
         raise FileNotFoundError(f"File not found: {file_path}")
 
     df = pd.read_csv(file_path)
+    start_time = None
 
     # Convert column specifications to actual column names
     x_column = get_column_reference(df, x_column)
@@ -93,7 +92,7 @@ def parse_csv_columns(file_path: str, x_column: str, y_column: str,
         x_values = np.concatenate((x_values, [x_values[-1] + interval]))
         y_values = np.concatenate((y_values, [0]))
 
-    return x_values, y_values
+    return x_values, y_values, start_time
 
 
 def convert_memory_units(memory_values: np.ndarray) -> Tuple[np.ndarray, str]:
@@ -118,8 +117,7 @@ def convert_memory_units(memory_values: np.ndarray) -> Tuple[np.ndarray, str]:
         return memory_values, 'Bytes'
 
 
-def plot_data(x_values: np.array,
-              y_values: np.array,
+def plot_data(datasets: List[Tuple[str, np.array, np.array]],
               x_label: str,
               y_label: str,
               title: str,
@@ -132,8 +130,7 @@ def plot_data(x_values: np.array,
     Plot data from CSV columns.
 
     Args:
-        x_values: Values for x-axis
-        y_values: Values for y-axis
+        datasets: List of tuples containing (x_values, y_values) for each dataset
         x_label: Label for x-axis
         y_label: Label for y-axis
         title: Plot title
@@ -143,15 +140,42 @@ def plot_data(x_values: np.array,
         y_max: Maximum value for y-axis
         convert_memory: Whether to convert y-values to appropriate memory units
     """
-    fig, ax = plt.subplots(figsize=(12, 6))
+    fig, ax = plt.subplots(figsize=(14, 6))
 
     # Convert memory values if requested
+    conversion_factor = 1
+    unit = 'Bytes'
     if convert_memory:
-        y_values, unit = convert_memory_units(y_values)
-        y_label = f"{y_label} ({unit})"
+        # Find max value across all datasets
+        max_value = max(np.max(y_vals) for _, _, y_vals in datasets)
 
-    # Plot data
-    ax.plot(x_values, y_values, color=blue_color)
+        if max_value > 1024 * 1024 * 1024:
+            conversion_factor = 1024 * 1024 * 1024
+            unit = 'GiB'
+        elif max_value > 1024 * 1024:
+            conversion_factor = 1024 * 1024
+            unit = 'MiB'
+        elif max_value > 1024:
+            conversion_factor = 1024
+            unit = 'KiB'
+
+    y_label = f"{y_label} ({unit})"
+
+    colors = list(TABLEAU_COLORS.values())
+    for i, (file_name, x_values, y_values) in enumerate(datasets):
+        if convert_memory:
+            y_values = y_values / conversion_factor
+        ax.plot(x_values, y_values, color=colors[i % len(colors)],
+                label=os.path.basename(file_name), alpha=1 if len(datasets) == 1 else 0.7)
+
+    # Add legend outside the plot
+    if len(datasets) > 1:
+        # Adjust the plot layout to make room for the legend
+        box = ax.get_position()
+        ax.set_position([box.x0, box.y0, box.width * 0.9, box.height])
+
+        # Place legend to the right of the plot
+        ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
 
     ax.set_xlabel(x_label, fontsize='large')
     ax.set_ylabel(y_label, fontsize='large')
@@ -181,13 +205,19 @@ def plot_data(x_values: np.array,
         y_min_plot, y_max_plot = ax.get_ylim()
         usable_range = y_max_plot - y_min_plot
 
+        # Find global x range across all datasets
+        x_min = min(np.min(x_vals) for _, x_vals, _ in datasets)
+        x_max = max(np.max(x_vals) for _, x_vals, _ in datasets)
+
         for x_val, label in key_points:
             ax.axvline(x=x_val, color=green_color, linestyle=':')
 
-            # Find all values within a small window around the vertical line
-            window = (max(x_values) - min(x_values)) * 0.02  # 2% of total range
-            window_indices = np.where(np.abs(x_values - x_val) <= window)[0]
-            window_values = y_values[window_indices]
+            # Find all y-values near this x-value across all datasets
+            window = (x_max - x_min) * 0.02  # 2% of total range
+            window_values = []
+            for _, x_values, y_values in datasets:
+                window_indices = np.where(np.abs(x_values - x_val) <= window)[0]
+                window_values.extend(y_values[window_indices])
 
             # Define possible positions
             positions = [
@@ -203,7 +233,7 @@ def plot_data(x_values: np.array,
             max_min_distance = -float('inf')
 
             for pos, alignment in positions:
-                distances = np.abs(window_values - pos)
+                distances = np.abs(np.array(window_values) - pos)
                 min_distance = np.min(distances) if len(distances) > 0 else float('inf')
 
                 if min_distance > max_min_distance:
@@ -240,11 +270,16 @@ def main():
     )
 
     parser = argparse.ArgumentParser(description='Plot CSV data columns')
-    parser.add_argument('data_file', help='Input CSV file')
+
+    # Required arguments
+    parser.add_argument('data_files', nargs='+',
+                        help='Input CSV file(s)')
     parser.add_argument('--x-column', required=True,
                         help='Column name for x-axis')
     parser.add_argument('--y-column', required=True,
                         help='Column name for y-axis')
+
+    # Optional arguments
     parser.add_argument('--output', '-o',
                         help='Path to save the output plot')
     parser.add_argument('--title', '-t', default='Data Plot',
@@ -274,20 +309,43 @@ def main():
         for value, label in args.key_points:
             key_points.append((float(value), label))
 
-    x_values, y_values = parse_csv_columns(
-        args.data_file,
-        args.x_column,
-        args.y_column,
-        zero_start=args.zero_start,
-        zero_end=args.zero_end
-    )
+    # File name, x_values, y_values
+    datasets: List[Tuple[str, np.ndarray, np.ndarray]] = []
+    start_times = []
+
+    # First pass: collect all data and start times
+    for data_file in args.data_files:
+        x_values, y_values, start_time = parse_csv_columns(
+            data_file,
+            args.x_column,
+            args.y_column,
+            zero_start=args.zero_start,
+            zero_end=args.zero_end
+        )
+        datasets.append((data_file, x_values, y_values))
+        if start_time is not None:
+            start_times.append(start_time)
+
+    # If we have timestamp data, adjust all x_values relative to the earliest start time
+    if start_times:
+        earliest_start = min(start_times)
+        adjusted_datasets = []
+
+        for i, (file_name, x_values, y_values) in enumerate(datasets):
+            if i < len(start_times):  # This dataset has timestamp data
+                offset = (start_times[i] - earliest_start).total_seconds()
+                adjusted_x = x_values + offset
+                adjusted_datasets.append((file_name, adjusted_x, y_values))
+            else:
+                adjusted_datasets.append((file_name, x_values, y_values))
+
+        datasets = adjusted_datasets
 
     x_label = args.x_label if args.x_label else args.x_column
     y_label = args.y_label if args.y_label else args.y_column
 
     plot_data(
-        x_values=x_values,
-        y_values=y_values,
+        datasets=datasets,
         x_label=x_label,
         y_label=y_label,
         title=args.title,
