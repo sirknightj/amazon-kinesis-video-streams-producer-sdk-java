@@ -192,7 +192,8 @@ jobs:
 
           # Add the final stream label
           FINAL_TIME_SECS=$(( (STREAM_COUNT - 1) * (WAIT_BETWEEN_SPAWNING_MS/ 1000) + 1 ))
-          KEY_POINTS+=(--key-points "${FINAL_TIME_SECS}" "${STREAM_COUNT} streams") 
+          LABEL="${STREAM_COUNT} Streams"
+          KEY_POINTS+=(--key-points "${FINAL_TIME_SECS}" "${LABEL}") 
 
           set -x
 
@@ -201,7 +202,7 @@ jobs:
             --y-column "RAM (KB)" \
             --x-label "Elapsed Duration" \
             --y-label "RSS" \
-            --title "RSS over time for different processes running a single client with a single stream\n(total: ${STREAM_COUNT} clients, streams, and processes) in the same machine\n(DemoAppMainWithHeapTracking @ ${COMMIT_HASH})\nUbuntu 24.04" \
+            --title "RSS over time for different processes running a single client with a single stream\n(total: ${STREAM_COUNT} clients, streams, and processes) in the same machine\n(DemoAppMainWithHeapTracking @ ${COMMIT_HASH})\nUbuntu 24.04, Java 17 Adopt" \
             --convert-memory \
             -o total-rss.png \
             --zero-start \
@@ -214,7 +215,7 @@ jobs:
             --y-column 2 \
             --x-label "Elapsed Duration" \
             --y-label "CPU" \
-            --title "CPU over time for different processes running a single client with a single stream\n(total: ${STREAM_COUNT} clients, streams, and processes) in the same machine\n(DemoAppMainWithHeapTracking @ ${COMMIT_HASH})" \
+            --title "CPU over time for different processes running a single client with a single stream\n(total: ${STREAM_COUNT} clients, streams, and processes) in the same machine\n(DemoAppMainWithHeapTracking @ ${COMMIT_HASH})\nUbuntu 24.04, Java 17 Adopt" \
             -o total-cpu.png \
             --zero-start \
             --zero-end \

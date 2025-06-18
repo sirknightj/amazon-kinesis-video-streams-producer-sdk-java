@@ -245,6 +245,9 @@ def plot_data(datasets: List[Tuple[str, np.array, np.array]],
         x_min = min(np.min(x_vals) for _, x_vals, _ in datasets)
         x_max = max(np.max(x_vals) for _, x_vals, _ in datasets)
 
+        # Initialize storage for used label positions
+        ax._used_label_positions = []
+
         for x_val, label in key_points:
             ax.axvline(x=x_val, color=green_color, linestyle=':')
 
@@ -255,12 +258,12 @@ def plot_data(datasets: List[Tuple[str, np.array, np.array]],
                 window_indices = np.where(np.abs(x_values - x_val) <= window)[0]
                 window_values.extend(y_values[window_indices])
 
-            # Define possible positions
+            # Define possible positions from center outward
             positions = [
-                (y_min_plot + 0.15 * usable_range, 'bottom'),
-                (y_min_plot + 0.3 * usable_range, 'bottom'),
                 (y_min_plot + 0.5 * usable_range, 'center'),
+                (y_min_plot + 0.3 * usable_range, 'bottom'),
                 (y_max_plot - 0.3 * usable_range, 'top'),
+                (y_min_plot + 0.15 * usable_range, 'bottom'),
                 (y_max_plot - 0.15 * usable_range, 'top')
             ]
 
@@ -269,14 +272,35 @@ def plot_data(datasets: List[Tuple[str, np.array, np.array]],
             max_min_distance = -float('inf')
 
             for pos, alignment in positions:
+                # Check distance from data points
                 distances = np.abs(np.array(window_values) - pos)
-                min_distance = np.min(distances) if len(distances) > 0 else float('inf')
+                min_distance_to_data = np.min(distances) if len(distances) > 0 else float('inf')
 
-                if min_distance > max_min_distance:
-                    max_min_distance = min_distance
+                # Check distance from other labels
+                min_distance_to_labels = float('inf')
+                for used_pos in ax._used_label_positions:
+                    label_distance = abs(pos - used_pos)
+                    min_distance_to_labels = min(min_distance_to_labels, label_distance)
+
+                # Combine both metrics with a preference for center position
+                if alignment == 'center':
+                    position_score = min_distance_to_data * 1.5  # Prefer center position
+                else:
+                    position_score = min_distance_to_data
+
+                # Add penalty for being close to other labels
+                if min_distance_to_labels < usable_range * 0.1:  # 10% of range
+                    position_score *= 0.5
+
+                if position_score > max_min_distance:
+                    max_min_distance = position_score
                     best_position = (pos, alignment)
 
             label_y, vertical_alignment = best_position
+            ax._used_label_positions.append(label_y)
+
+            # Sort used positions to maintain consistency
+            ax._used_label_positions.sort()
 
             ax.text(x_val, label_y, label,
                     rotation=90,
