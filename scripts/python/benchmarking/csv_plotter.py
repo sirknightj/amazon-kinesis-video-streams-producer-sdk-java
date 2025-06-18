@@ -1,5 +1,5 @@
 import argparse
-from itertools import chain
+import glob
 import logging
 import os
 from typing import List, Tuple, Optional
@@ -12,6 +12,30 @@ import pandas as pd
 green_color = TABLEAU_COLORS['tab:green']
 
 logger = logging.getLogger(__name__)
+
+
+def convert_to_bytes(value: float, unit: str) -> float:
+    """
+    Convert storage units to bytes.
+
+    Args:
+        value: The numeric value to convert
+        unit: The unit to convert from (KB, MB, KiB, MiB, GB, GiB)
+
+    Returns:
+        Value in bytes
+    """
+    # Define conversion factors
+    conversion = {
+        'KB': 1000,
+        'MB': 1000 * 1000,
+        'GB': 1000 * 1000 * 1000,
+        'KiB': 1024,
+        'MiB': 1024 * 1024,
+        'GiB': 1024 * 1024 * 1024
+    }
+
+    return value * conversion.get(unit, 1)
 
 
 def get_column_reference(df: pd.DataFrame, column_spec: str) -> str:
@@ -39,7 +63,8 @@ def get_column_reference(df: pd.DataFrame, column_spec: str) -> str:
 
 
 def parse_csv_columns(file_path: str, x_column: str, y_column: str,
-                      zero_start: bool = False, zero_end: bool = False) -> Tuple[np.array, np.array, Optional[pd.Timestamp]]:
+                      zero_start: bool = False, zero_end: bool = False,
+                      convert_units: bool = False) -> Tuple[str, str, np.array, np.array, Optional[pd.Timestamp]]:
     """
     Parse specified columns from a CSV file.
     If x_column contains timestamps, converts them to duration from first timestamp.
@@ -50,15 +75,21 @@ def parse_csv_columns(file_path: str, x_column: str, y_column: str,
         y_column: Name of the column to use for y-axis
         zero_start: Whether to add a zero value at the start
         zero_end: Whether to add a zero value at the end
+        convert_units: Whether to convert the units in the y-axis to bytes
 
     Returns:
+        X and Y column names
         Tuple of (x_values, y_values)
+        Timestamp of the first data point
     """
     if not os.path.exists(file_path):
         raise FileNotFoundError(f"File not found: {file_path}")
 
     df = pd.read_csv(file_path)
     start_time = None
+
+    # Check for storage units in column names and convert values
+    storage_units = ['KB', 'MB', 'KiB', 'MiB', 'GB', 'GiB']
 
     # Convert column specifications to actual column names
     x_column = get_column_reference(df, x_column)
@@ -77,6 +108,10 @@ def parse_csv_columns(file_path: str, x_column: str, y_column: str,
         # If conversion fails, use original values
         x_values = np.array(df[x_column])
 
+    # Convert y values if needed
+    y_unit = next((unit for unit in storage_units if unit in y_column), None)
+    if y_unit and convert_units:
+        df[y_column] = df[y_column].apply(lambda x: convert_to_bytes(x, y_unit))
     y_values = np.array(df[y_column])
 
     # Calculate typical interval (use the first interval as reference)
@@ -93,7 +128,7 @@ def parse_csv_columns(file_path: str, x_column: str, y_column: str,
         x_values = np.concatenate((x_values, [x_values[-1] + interval]))
         y_values = np.concatenate((y_values, [0]))
 
-    return x_values, y_values, start_time
+    return x_column, y_column, x_values, y_values, start_time
 
 
 def convert_memory_units(memory_values: np.ndarray) -> Tuple[np.ndarray, str]:
@@ -145,9 +180,9 @@ def plot_data(datasets: List[Tuple[str, np.array, np.array]],
 
     # Convert memory values if requested
     conversion_factor = 1
-    unit = 'Bytes'
     if convert_memory:
         # Find max value across all datasets
+        unit = 'Bytes'
         max_value = max(np.max(y_vals) for _, _, y_vals in datasets)
 
         if max_value > 1024 * 1024 * 1024:
@@ -160,7 +195,7 @@ def plot_data(datasets: List[Tuple[str, np.array, np.array]],
             conversion_factor = 1024
             unit = 'KiB'
 
-    y_label = f"{y_label} ({unit})"
+        y_label = f"{y_label} ({unit})"
 
     colors = list(TABLEAU_COLORS.values())
     for i, (file_name, x_values, y_values) in enumerate(datasets):
@@ -314,20 +349,37 @@ def main():
     datasets: List[Tuple[str, np.ndarray, np.ndarray]] = []
     start_times = []
 
-    # Flatten the list of files and handle spaces
-    data_files = [os.path.expanduser(file)
-                  for data_file in args.data_files
-                  for file in data_file.split()
-                  if file.strip()]
+    # Expand paths, handle globs, and flatten the list
+    data_files = []
+    for data_file in args.data_files:
+        for file in data_file.split():
+            if file.strip():
+                expanded_path = os.path.expanduser(file)
+                # If the path contains a wildcard, use glob
+                if '*' in expanded_path:
+                    glob_matches = glob.glob(expanded_path)
+                    # Sort the glob matches to ensure consistent ordering
+                    data_files.extend(sorted(glob_matches))
+                else:
+                    data_files.append(expanded_path)
+
+    if not data_files:
+        raise ValueError("No input files found! Please check your file paths and patterns.")
+
+    logger.info(f"Processing {len(data_files)} files: {[os.path.basename(f) for f in data_files]}")
+
+    x_col = args.x_column
+    y_col = args.y_column
 
     # First pass: collect all data and start times
     for data_file in data_files:
-        x_values, y_values, start_time = parse_csv_columns(
+        x_col, y_col, x_values, y_values, start_time = parse_csv_columns(
             data_file,
             args.x_column,
             args.y_column,
             zero_start=args.zero_start,
-            zero_end=args.zero_end
+            zero_end=args.zero_end,
+            convert_units=args.convert_memory,
         )
         datasets.append((data_file, x_values, y_values))
         if start_time is not None:
@@ -348,8 +400,8 @@ def main():
 
         datasets = adjusted_datasets
 
-    x_label = args.x_label if args.x_label else args.x_column
-    y_label = args.y_label if args.y_label else args.y_column
+    x_label = args.x_label if args.x_label else x_col
+    y_label = args.y_label if args.y_label else y_col
 
     plot_data(
         datasets=datasets,

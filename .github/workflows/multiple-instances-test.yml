@@ -22,11 +22,15 @@ jobs:
     # while waiting WAIT_BETWEEN_SPAWNING_MS between jar's.
     # After they all spawned, it will run for HOLD_PERIOD_MS before
     # tearing down. (They should finish around the same time.)
+    #
+    # NUM_LABELS is how many labels will be added to the graph
+    # to mark the current streams count
     env:
       STREAM_NAME_PREFIX: java-producer-multi-stream-ubuntu-test
       STREAM_COUNT: 10
       HOLD_PERIOD_MS: 60000
       WAIT_BETWEEN_SPAWNING_MS: 10000
+      NUM_LABELS: 3
       OUTPUT_ARTIFACTS_NAME: artifacts
 
     permissions:
@@ -169,6 +173,47 @@ jobs:
             --zero-start \
             --zero-end \
             -o "malloc-usage.png"
+
+          # Labels - we want them to be evenly spaced
+          KEY_POINTS=""
+          for i in $(seq 1 $(( NUM_LABELS - 1 ))); do
+            POSITION=$(( (i * STREAM_COUNT + NUM_LABELS - 1) / NUM_LABELS ))
+            SECS_MARK=$(( (POSITION - 1) * (WAIT_BETWEEN_SPAWNING_MS/ 1000) + 1 ))
+          
+            # Handle singular/plural form
+            if [ "$POSITION" -eq 1 ]; then
+              KEY_POINTS="$KEY_POINTS --key-points $SECS_MARK \"$POSITION stream\""
+            else
+              KEY_POINTS="$KEY_POINTS --key-points $SECS_MARK \"$POSITION streams\""
+            fi
+          done
+          
+          # Add the final stream label
+          FINAL_TIME_SECS=$(( (STREAM_COUNT - 1) * (WAIT_BETWEEN_SPAWNING_MS/ 1000) + 1 ))
+          KEY_POINTS="$KEY_POINTS --key-points $FINAL_TIME_SECS \"$STREAM_COUNT streams\""      
+
+          python ./scripts/python/benchmarking/csv_plotter.py "*metrics.txt" \
+            --x-column "Timestamp" \
+            --y-column "RAM (KB)" \
+            --x-label "Elapsed Duration" \
+            --y-label "RSS" \
+            --title "RSS over time for different processes running a single client with a single stream\n(total: ${STREAM_COUNT} clients, streams, and processes) in the same machine\n(DemoAppMainWithHeapTracking @ ${COMMIT_HASH})" \
+            --convert-memory \
+            -o total-rss.png \
+            --zero-start \
+            --zero-end \
+            "${KEY_POINTS}"
+          
+          python ./scripts/python/benchmarking/csv_plotter.py "*metrics.txt" \
+            --x-column "Timestamp" \
+            --y-column 2 \
+            --x-label "Elapsed Duration" \
+            --y-label "CPU" \
+            --title "RSS over time for different processes running a single client with a single stream\n(total: ${STREAM_COUNT} clients, streams, and processes) in the same machine\n(DemoAppMainWithHeapTracking @ ${COMMIT_HASH})" \
+            -o total-rss.png \
+            --zero-start \
+            --zero-end \
+            "${KEY_POINTS}"
         shell: bash
 
       - name: Gather artifacts
