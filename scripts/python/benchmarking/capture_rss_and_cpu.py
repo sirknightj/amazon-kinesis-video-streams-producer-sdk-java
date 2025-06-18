@@ -14,23 +14,29 @@ import sys
 import time
 
 from datetime import datetime
+
+import psutil
 from psutil import Process, NoSuchProcess, pid_exists, cpu_count
 
 
 class ProcessMonitor:
     """Class to monitor process metrics including CPU and RAM usage."""
 
-    def __init__(self, pid: int, interval: float = 0.1):
+    def __init__(self, pid: int | None = None, interval: float = 0.1):
         """
         Initialize the ProcessMonitor.
 
         Args:
-            pid (int): Process ID to monitor
+            pid (int|None): Process ID to monitor. None for system-wide monitoring
             interval (float): Sampling interval in seconds
         """
         self.pid = pid
         self.interval = interval
-        self.output_file = f'process_{pid}_metrics.txt'
+
+        if pid is None:
+            self.output_file = f'system_metrics.txt'
+        else:
+            self.output_file = f'process_{pid}_metrics.txt'
 
         # logical cores (including hyperthreading)
         # in cloud, this is known as vCPUs
@@ -48,17 +54,40 @@ class ProcessMonitor:
     def get_process_metrics(self) -> tuple[str, float, float] | None:
         """
         Collect current process metrics.
+        The CPU percent is on 0-1 range.
 
         Returns:
             tuple: (timestamp, memory_mb, cpu_percent) or None if process not found
         """
+        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
+
         try:
-            process = Process(self.pid)
-            cpu_percent = process.cpu_percent(interval=0.1)
-            normalized_cpu_percent = cpu_percent / self.cpu_percentage_max
-            memory_kb = process.memory_info().rss / 1024
-            timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
-            return timestamp, memory_kb, normalized_cpu_percent
+
+            if self.pid is None:
+                # System-wide monitoring
+                # cpu_percent() returns value between 0-100. We need 0-1 value
+                cpu_percent = psutil.cpu_percent(interval=self.interval)
+
+                total_rss = 0
+                for proc in psutil.process_iter(['memory_info']):
+                    try:
+                        if proc.info['memory_info'] is not None:
+                            total_rss += proc.info['memory_info'].rss
+                    except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                        continue
+
+                memory_kb = total_rss / 1024
+                normalized_cpu_percent = cpu_percent / 100
+                return timestamp, memory_kb, normalized_cpu_percent
+            else:
+                # Process-specific monitoring
+                # process.cpu_percent() needs to be normalized on multicore systems
+                process = Process(self.pid)
+                cpu_percent = process.cpu_percent(interval=self.interval)
+
+                normalized_cpu_percent = cpu_percent / self.cpu_percentage_max
+                memory_kb = process.memory_info().rss / 1024
+                return timestamp, memory_kb, normalized_cpu_percent
 
         except NoSuchProcess:
             print(f"Process with PID {self.pid} no longer exists")
@@ -86,7 +115,11 @@ class ProcessMonitor:
 
     def record_metrics_until_process_ends(self) -> None:
         """Start monitoring the process and recording metrics."""
-        print(f"Starting monitoring of PID {self.pid}")
+        if self.pid is None:
+            print("Capturing the RSS and CPU for the entire system")
+        else:
+            print(f"Starting monitoring of PID {self.pid}")
+
         print(f"Writing data to {self.output_file}")
 
         try:
@@ -119,16 +152,18 @@ def parse_arguments() -> argparse.Namespace:
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
 
+    # Optional arguments
     parser.add_argument(
         'pid',
         type=int,
-        help='Process ID to monitor'
+        nargs='?',
+        help='Process ID to monitor. If not provided, monitors the entire system.'
     )
 
     parser.add_argument(
         '-i', '--interval',
         type=float,
-        default=0.1,
+        default=0.25,
         help='Sampling interval in seconds'
     )
 
@@ -141,8 +176,8 @@ def validate_args(args: argparse.Namespace) -> None:
 
     Raises an error if any of the args are invalid.
     """
-    # Validate PID
-    if not pid_exists(args.pid):
+    # Validate PID if provided
+    if args.pid is not None and not pid_exists(args.pid):
         raise ValueError(f"Error: Process with PID {args.pid} does not exist")
 
     # Validate interval
