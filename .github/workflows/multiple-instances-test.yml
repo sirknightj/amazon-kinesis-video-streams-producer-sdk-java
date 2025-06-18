@@ -30,7 +30,7 @@ jobs:
       STREAM_COUNT: 10
       HOLD_PERIOD_MS: 60000
       WAIT_BETWEEN_SPAWNING_MS: 10000
-      NUM_LABELS: 3
+      NUM_LABELS: 4
       OUTPUT_ARTIFACTS_NAME: artifacts
 
     permissions:
