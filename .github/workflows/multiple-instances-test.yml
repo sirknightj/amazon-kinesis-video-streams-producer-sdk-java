@@ -77,9 +77,8 @@ jobs:
       - name: Setup the streams
         working-directory: scripts
         run: |
-          for i in {1..10}
-          do
-          ./prepareStream.sh "${STREAM_NAME_PREFIX}-${i}"
+          for i in $(seq 1 "${STREAM_COUNT}"); do
+            ./prepareStream.sh "${STREAM_NAME_PREFIX}-${i}"
           done
         shell: bash
 
@@ -101,29 +100,29 @@ jobs:
           python ./scripts/python/benchmarking/capture_rss_and_cpu.py &
           WHOLE_SYSTEM_MONITORING_PID=$!
 
-          for i in {1..${STREAM_COUNT}}; do
+          for i in $(seq 1 "${STREAM_COUNT}"); do
             # Calculating running duration for this instance - to finish at the same time
             # Formula: (STREAM_COUNT - i) * WAIT_BETWEEN_SPAWNING_MS + HOLD_PERIOD_MS
             DURATION_MS=$(( (STREAM_COUNT - i) * WAIT_BETWEEN_SPAWNING_MS + HOLD_PERIOD_MS ))
 
             echo "Starting instance ${i}..."
             java -classpath "$JAR_FILE" \
-              -Daws.accessKeyId=${AWS_ACCESS_KEY_ID} \
-              -Daws.secretKey=${AWS_SECRET_ACCESS_KEY} \
-              -Daws.sessionToken=${AWS_SESSION_TOKEN} \
-              -Djava.library.path=${JNI_FOLDER} \
-              -Dkvs-stream="${STREAM_NAME_PREFIX}${i}" \
+              -Daws.accessKeyId="${AWS_ACCESS_KEY_ID}" \
+              -Daws.secretKey="${AWS_SECRET_ACCESS_KEY}" \
+              -Daws.sessionToken="${AWS_SESSION_TOKEN}" \
+              -Djava.library.path="${JNI_FOLDER}" \
+              -Dkvs-stream="${STREAM_NAME_PREFIX}-${i}" \
               -Dlog4j.configurationFile=log4j2.xml \
               -Dmalloc-data-output-path="./memory-data-stream-${i}.csv" \
               -Dstream-duration-ms=${DURATION_MS} \
               com.amazonaws.kinesisvideo.demoapp.DemoAppMainWithHeapTracking &
-            JAVA_PIDS[$i]=$!
+            JAVA_PIDS["$i"]=$!
           
-            python ./scripts/python/benchmarking/capture_rss_and_cpu.py ${JAVA_PIDS[$i]} &
-            MONITOR_PIDS[$i]=$!
+            python ./scripts/python/benchmarking/capture_rss_and_cpu.py "${JAVA_PIDS[${i}]}" &
+            MONITOR_PIDS["$i"]=$!
           
             # Wait before starting next instance
-            if [ $i -lt $STREAM_COUNT ]; then
+            if [ "$i" -lt "$STREAM_COUNT" ]; then
               sleep $(( WAIT_BETWEEN_SPAWNING_MS / 1000 ))
             fi
           done
@@ -133,22 +132,22 @@ jobs:
           
           # Use exit code of any failed process, otherwise 0 if all succeeded
           EXIT_CODE=0
-          for i in {1..${STREAM_COUNT}}; do
-            if wait ${JAVA_PIDS[$i]}; then
+          for i in $(seq 1 "${STREAM_COUNT}"); do
+            if wait "${JAVA_PIDS[${i}]}"; then
               echo "Instance $i completed successfully"
             else
               local_exit=$?
               echo "Instance ${i} failed with exit code ${local_exit}"
-              EXIT_CODE=$local_exit
+              EXIT_CODE="${local_exit}"
             fi
-            wait ${MONITOR_PIDS[$i]}
+            wait "${MONITOR_PIDS[${i}]}"
           done
           
-          kill -9 "$WHOLE_SYSTEM_MONITORING_PID"
+          kill -9 "${WHOLE_SYSTEM_MONITORING_PID}"
           
           set -e
           
-          exit $EXIT_CODE
+          exit "$EXIT_CODE"
 
         shell: bash
 
