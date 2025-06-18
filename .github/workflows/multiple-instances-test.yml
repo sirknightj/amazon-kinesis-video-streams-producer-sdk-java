@@ -118,7 +118,7 @@ jobs:
               com.amazonaws.kinesisvideo.demoapp.DemoAppMainWithHeapTracking &
             JAVA_PIDS["$i"]=$!
           
-            python ./scripts/python/benchmarking/capture_rss_and_cpu.py "${JAVA_PIDS[${i}]}" &
+            python ./scripts/python/benchmarking/capture_rss_and_cpu.py "${JAVA_PIDS[${i}]}" -o "./stream-${i}_cpu_rss_metrics.txt" &
             MONITOR_PIDS["$i"]=$!
           
             # Wait before starting next instance
@@ -155,7 +155,9 @@ jobs:
         run: |
           mkdir output
           mv *.csv output
-          mv *.txt output
+          mv *_metrics.txt output
+
+        shell: bash
 
       - name: Upload report
         uses: actions/upload-artifact@v4

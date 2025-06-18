@@ -22,7 +22,7 @@ from psutil import Process, NoSuchProcess, pid_exists, cpu_count
 class ProcessMonitor:
     """Class to monitor process metrics including CPU and RAM usage."""
 
-    def __init__(self, pid: int | None = None, interval: float = 0.1):
+    def __init__(self, pid: int | None = None, interval: float = 0.1, output_filename: str = None):
         """
         Initialize the ProcessMonitor.
 
@@ -33,10 +33,15 @@ class ProcessMonitor:
         self.pid = pid
         self.interval = interval
 
-        if pid is None:
-            self.output_file = f'system_metrics.txt'
+        if output_filename is None:
+            if pid is None:
+                self.output_file = f'system_metrics.txt'
+            else:
+                self.output_file = f'process_{pid}_metrics.txt'
         else:
-            self.output_file = f'process_{pid}_metrics.txt'
+            # Placeholder text: PID
+            # process_PID_metrics.txt --> process_1234_metrics.txt
+            self.output_file = output_filename.replace('PID', str(pid))
 
         # logical cores (including hyperthreading)
         # in cloud, this is known as vCPUs
@@ -167,6 +172,12 @@ def parse_arguments() -> argparse.Namespace:
         help='Sampling interval in seconds'
     )
 
+    parser.add_argument(
+        '-o', '--output',
+        type=str,
+        help='Name of the output file. Default: process_PID_metrics.txt'
+    )
+
     return parser.parse_args()
 
 
@@ -197,7 +208,7 @@ def main() -> int:
 
         validate_args(args)
 
-        monitor = ProcessMonitor(args.pid, args.interval)
+        monitor = ProcessMonitor(args.pid, args.interval, args.output)
         monitor.record_metrics_until_process_ends()
         return 0
 
