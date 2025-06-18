@@ -175,22 +175,28 @@ jobs:
             -o "malloc-usage.png"
 
           # Labels - we want them to be evenly spaced
-          KEY_POINTS=""
+          KEY_POINTS=()
           for i in $(seq 1 $(( NUM_LABELS - 1 ))); do
             POSITION=$(( (i * STREAM_COUNT + NUM_LABELS - 1) / NUM_LABELS ))
             SECS_MARK=$(( (POSITION - 1) * (WAIT_BETWEEN_SPAWNING_MS/ 1000) + 1 ))
-          
+
             # Handle singular/plural form
             if [ "$POSITION" -eq 1 ]; then
-              KEY_POINTS="$KEY_POINTS --key-points $SECS_MARK \"$POSITION stream\""
+              KEY_POINTS+=(--key-points "${SECS_MARK}" "${POSITION} stream")
             else
-              KEY_POINTS="$KEY_POINTS --key-points $SECS_MARK \"$POSITION streams\""
+              KEY_POINTS+=(--key-points "${SECS_MARK}" "${POSITION} streams")
             fi
           done
-          
+
           # Add the final stream label
           FINAL_TIME_SECS=$(( (STREAM_COUNT - 1) * (WAIT_BETWEEN_SPAWNING_MS/ 1000) + 1 ))
-          KEY_POINTS="$KEY_POINTS --key-points $FINAL_TIME_SECS \"$STREAM_COUNT streams\""      
+          KEY_POINTS+=(--key-points "${FINAL_TIME_SECS}" "${STREAM_COUNT} streams")
+
+          # Add the final stream label
+          FINAL_TIME_SECS=$(( (STREAM_COUNT - 1) * (WAIT_BETWEEN_SPAWNING_MS/ 1000) + 1 ))
+          KEY_POINTS="${KEY_POINTS} --key-points ${FINAL_TIME_SECS} '${STREAM_COUNT} streams'"   
+
+          set -x
 
           python ./scripts/python/benchmarking/csv_plotter.py "*metrics.txt" \
             --x-column "Timestamp" \
@@ -203,7 +209,7 @@ jobs:
             --zero-start \
             --zero-end \
             --y-min 0 \
-            ${KEY_POINTS}
+            "${KEY_POINTS[@]}"
           
           python ./scripts/python/benchmarking/csv_plotter.py "*metrics.txt" \
             --x-column "Timestamp" \
@@ -215,7 +221,7 @@ jobs:
             --zero-start \
             --zero-end \
             --y-min 0 \
-            ${KEY_POINTS}
+            "${KEY_POINTS[@]}"
         shell: bash
 
       - name: Gather artifacts
