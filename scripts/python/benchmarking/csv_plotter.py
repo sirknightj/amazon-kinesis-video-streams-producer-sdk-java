@@ -1,4 +1,5 @@
 import argparse
+from itertools import chain
 import logging
 import os
 from typing import List, Tuple, Optional
@@ -313,8 +314,14 @@ def main():
     datasets: List[Tuple[str, np.ndarray, np.ndarray]] = []
     start_times = []
 
+    # Flatten the list of files and handle spaces
+    data_files = [os.path.expanduser(file)
+                  for data_file in args.data_files
+                  for file in data_file.split()
+                  if file.strip()]
+
     # First pass: collect all data and start times
-    for data_file in args.data_files:
+    for data_file in data_files:
         x_values, y_values, start_time = parse_csv_columns(
             data_file,
             args.x_column,
