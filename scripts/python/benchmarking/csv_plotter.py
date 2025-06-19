@@ -14,6 +14,25 @@ green_color = TABLEAU_COLORS['tab:green']
 logger = logging.getLogger(__name__)
 
 
+def natural_sort_key(s: str) -> list:
+    """
+    Create a key for natural sorting that handles numbers correctly.
+    For example: "file10" will come after "file2" instead of between "file1" and "file2"
+
+    Args:
+        s: String to create sort key for
+
+    Returns:
+        List of string and integer components for sorting
+    """
+    import re
+
+    def convert(text):
+        return int(text) if text.isdigit() else text.lower()
+
+    return [convert(c) for c in re.split('([0-9]+)', s)]
+
+
 def convert_to_bytes(value: float, unit: str) -> float:
     """
     Convert storage units to bytes.
@@ -510,9 +529,9 @@ def main():
     parser.add_argument('--convert-memory', action='store_true',
                         help='Convert y-axis values to appropriate memory units')
     parser.add_argument('--zero-start', action='store_true',
-                       help='Add a zero value data point at the start')
+                        help='Add a zero value data point at the start')
     parser.add_argument('--zero-end', action='store_true',
-                       help='Add a zero value data point at the end')
+                        help='Add a zero value data point at the end')
 
     args = parser.parse_args()
 
@@ -539,7 +558,7 @@ def main():
                 else:
                     data_files.append(expanded_path)
 
-    data_files.sort()
+    data_files.sort(key=natural_sort_key)
 
     if not data_files:
         raise ValueError("No input files found! Please check your file paths and patterns.")
