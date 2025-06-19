@@ -351,7 +351,20 @@ def plot_data_split(datasets: List[Tuple[str, np.array, np.array]],
     # Create figure with two subplots
     # ax1 = top, ax2 = bottom
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(14, 8), height_ratios=[1, 1])
-    fig.subplots_adjust(hspace=0.08)  # Reduce space between subplots
+
+    # Calculate the number of newlines in the title
+    num_lines = len(title.split('\\n'))
+
+    # Adjust spacing based on number of lines in title
+    # Base spacing of 0.08 between subplots
+    # Add more top margin for each line of title (roughly 0.05 per line)
+    top_margin = min(0.95, 1 - (0.05 * num_lines))
+    fig.subplots_adjust(hspace=0.08, top=top_margin)
+
+    # Add title with dynamic position
+    # For longer titles, move it up slightly
+    title_y = min(0.98, 1 - (0.02 * num_lines))
+    fig.suptitle(title.replace('\\n', '\n'), fontsize='x-large', y=title_y)
 
     # Convert memory values if requested
     conversion_factor = 1
@@ -390,9 +403,6 @@ def plot_data_split(datasets: List[Tuple[str, np.array, np.array]],
         ax1.plot(x_values, y_values, color=color, label=os.path.basename(file_name))
         ax2.plot(x_values, y_values, color=color, label=os.path.basename(file_name))
 
-    print(f'Lower limit: {lower_limit}')
-    print(f'Upper limit: {upper_limit}')
-
     # Set different scales for the two plots
     ax1.set_ylim(upper_limit, np.max(all_y_values) * 1.001)
     ax2.set_ylim(0, lower_limit)
@@ -416,8 +426,6 @@ def plot_data_split(datasets: List[Tuple[str, np.array, np.array]],
     # Set labels and title
     ax2.set_xlabel(x_label, fontsize='large')
     fig.text(0.04, 0.5, y_label, va='center', rotation='vertical', fontsize='large')
-
-    plt.title(title.replace('\\n', '\n'), fontsize='x-large')
 
     # Add grid
     ax1.grid(True)
