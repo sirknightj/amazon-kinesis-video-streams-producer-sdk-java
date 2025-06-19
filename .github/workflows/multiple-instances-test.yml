@@ -172,6 +172,7 @@ jobs:
             --title "Malloc usage over time (DemoAppMainWithHeapTracking @ ${COMMIT_HASH})" \
             --zero-start \
             --zero-end \
+            --y-break 10 244 \
             -o "malloc-usage.png"
 
           # Labels - we want them to be evenly spaced

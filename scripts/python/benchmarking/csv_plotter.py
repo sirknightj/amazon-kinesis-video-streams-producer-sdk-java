@@ -44,7 +44,7 @@ def get_column_reference(df: pd.DataFrame, column_spec: str) -> str:
 
     Args:
         df: DataFrame containing the data
-        column_spec: Column specification (name or index)
+        column_spec: Column specification (name or index). Indexes start from 0.
 
     Returns:
         Column name
@@ -323,6 +323,144 @@ def plot_data(datasets: List[Tuple[str, np.array, np.array]],
         plt.show()
 
 
+def plot_data_split(datasets: List[Tuple[str, np.array, np.array]],
+                    x_label: str,
+                    y_label: str,
+                    title: str,
+                    save_path: Optional[str] = None,
+                    key_points: Optional[List[Tuple[float, str]]] = None,
+                    y_min: Optional[float] = None,
+                    y_max: Optional[float] = None,
+                    convert_memory: bool = False,
+                    y_break: Optional[Tuple[float, float]] = None) -> None:
+    """
+    Plot data from CSV columns with optional broken y-axis.
+
+    Args:
+        datasets: List of tuples containing (file_name, x_values, y_values) for each dataset
+        x_label: Label for x-axis
+        y_label: Label for y-axis
+        title: Plot title
+        save_path: Path to save the plot
+        key_points: List of tuples containing (x_value, label) for marking points
+        y_min: Minimum value for y-axis
+        y_max: Maximum value for y-axis
+        convert_memory: Whether to convert y-values to appropriate memory units
+        break_y_axis: Whether to break the y-axis into two parts
+    """
+    # Create figure with two subplots
+    # ax1 = top, ax2 = bottom
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(14, 8), height_ratios=[1, 1])
+    fig.subplots_adjust(hspace=0.08)  # Reduce space between subplots
+
+    # Convert memory values if requested
+    conversion_factor = 1
+    if convert_memory:
+        # Find max value across all datasets
+        unit = 'Bytes'
+        max_value = max(np.max(y_vals) for _, _, y_vals in datasets)
+
+        if max_value > 1024 * 1024 * 1024:
+            conversion_factor = 1024 * 1024 * 1024
+            unit = 'GiB'
+        elif max_value > 1024 * 1024:
+            conversion_factor = 1024 * 1024
+            unit = 'MiB'
+        elif max_value > 1024:
+            conversion_factor = 1024
+            unit = 'KiB'
+
+        y_label = f"{y_label} ({unit})"
+
+    colors = list(TABLEAU_COLORS.values())
+
+    # Calculate the break points
+    all_y_values = np.concatenate([y_vals for _, _, y_vals in datasets])
+    if convert_memory:
+        all_y_values = all_y_values / conversion_factor
+
+    lower_limit, upper_limit = y_break
+
+    # Plot on both axes
+    for i, (file_name, x_values, y_values) in enumerate(datasets):
+        if convert_memory:
+            y_values = y_values / conversion_factor
+
+        color = colors[i % len(colors)]
+        ax1.plot(x_values, y_values, color=color, label=os.path.basename(file_name))
+        ax2.plot(x_values, y_values, color=color, label=os.path.basename(file_name))
+
+    print(f'Lower limit: {lower_limit}')
+    print(f'Upper limit: {upper_limit}')
+
+    # Set different scales for the two plots
+    ax1.set_ylim(upper_limit, np.max(all_y_values) * 1.001)
+    ax2.set_ylim(0, lower_limit)
+
+    # Add break marks
+    d = .01  # Size of break marks
+    kwargs = dict(transform=ax1.transAxes, color='k', clip_on=False)
+    ax1.plot((-d, +d), (-d, +d), **kwargs)
+    ax1.plot((1 - d, 1 + d), (-d, +d), **kwargs)
+    kwargs.update(transform=ax2.transAxes)
+    ax2.plot((-d, +d), (1 - d, 1 + d), **kwargs)
+    ax2.plot((1 - d, 1 + d), (1 - d, 1 + d), **kwargs)
+
+    # Remove bottom tick labels of top plot
+    ax1.set_xticklabels([])
+
+    # Add legend outside the plot if multiple datasets
+    if len(datasets) > 1:
+        ax2.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+
+    # Set labels and title
+    ax2.set_xlabel(x_label, fontsize='large')
+    fig.text(0.04, 0.5, y_label, va='center', rotation='vertical', fontsize='large')
+
+    plt.title(title.replace('\\n', '\n'), fontsize='x-large')
+
+    # Add grid
+    ax1.grid(True)
+    ax2.grid(True)
+
+    ax1.set_xlim(left=0)
+    ax2.set_xlim(left=0)
+
+    # Format x-axis labels as HH:MM:SS
+    def format_time(x, _):
+        hours = int(x // 3600)
+        minutes = int((x % 3600) // 60)
+        seconds = int(x % 60)
+        return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+
+    ax2.xaxis.set_major_formatter(plt.FuncFormatter(format_time))
+
+    # Add key points if provided
+    # TODO: put the labels in the 'best spot' (currently go in the bottom graph in the center)
+    if key_points:
+        axes = [ax1, ax2]
+        for ax in axes:
+            y_min_plot, y_max_plot = ax.get_ylim()
+            usable_range = y_max_plot - y_min_plot
+
+            for x_val, label in key_points:
+                ax.axvline(x=x_val, color=green_color, linestyle=':')
+
+                if ax == ax2:
+                    ax.text(x_val, y_min_plot + usable_range * 0.5, label,
+                            rotation=90,
+                            verticalalignment='center',
+                            horizontalalignment='right')
+
+    plt.setp(ax2.xaxis.get_majorticklabels(), rotation=45)
+
+    if save_path:
+        plt.savefig(save_path, bbox_inches='tight')
+        logger.info(f"Plot saved to {save_path}")
+    else:
+        plt.show()
+
+
 def main():
     logging.basicConfig(
         level=logging.INFO,
@@ -354,6 +492,9 @@ def main():
     parser.add_argument('--key-points', '-k', nargs=2, action='append',
                         metavar=('VALUE', 'LABEL'),
                         help='Key points to mark with vertical labels')
+    parser.add_argument('--y-break', nargs=2, action='append',
+                        metavar=('BOTTOM_END', 'TOP_START'),
+                        help='Where to make a slice on the y-axis')
     parser.add_argument('--y-min', type=float,
                         help='Minimum value for y-axis')
     parser.add_argument('--y-max', type=float,
@@ -389,6 +530,8 @@ def main():
                     data_files.extend(sorted(glob_matches))
                 else:
                     data_files.append(expanded_path)
+
+    data_files.sort()
 
     if not data_files:
         raise ValueError("No input files found! Please check your file paths and patterns.")
@@ -430,17 +573,40 @@ def main():
     x_label = args.x_label if args.x_label else x_col
     y_label = args.y_label if args.y_label else y_col
 
-    plot_data(
-        datasets=datasets,
-        x_label=x_label,
-        y_label=y_label,
-        title=args.title,
-        save_path=args.output,
-        key_points=key_points,
-        y_min=args.y_min,
-        y_max=args.y_max,
-        convert_memory=args.convert_memory
-    )
+    y_break = None
+    if args.y_break:
+        if len(args.y_break) > 1:
+            raise ValueError('Only 1 break is currently supported')
+
+        for bottom, top in args.y_break:
+            y_break = (float(bottom), float(top))
+
+    # plot_data
+    if args.y_break:
+        plot_data_split(
+            datasets=datasets,
+            x_label=x_label,
+            y_label=y_label,
+            title=args.title,
+            save_path=args.output,
+            key_points=key_points,
+            y_min=args.y_min,
+            y_max=args.y_max,
+            convert_memory=args.convert_memory,
+            y_break=y_break,
+        )
+    else:
+        plot_data(
+            datasets=datasets,
+            x_label=x_label,
+            y_label=y_label,
+            title=args.title,
+            save_path=args.output,
+            key_points=key_points,
+            y_min=args.y_min,
+            y_max=args.y_max,
+            convert_memory=args.convert_memory
+        )
 
 
 if __name__ == "__main__":
