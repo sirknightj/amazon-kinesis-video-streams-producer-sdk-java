@@ -90,7 +90,7 @@ jobs:
               mkdir build && \
               cd build && \
               cmake .. && \
-              make'
+              make -j'
 
       - name: Build JNI (Windows)
         if: ${{ runner.os == 'Windows' }}
