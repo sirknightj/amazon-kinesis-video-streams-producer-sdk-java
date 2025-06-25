@@ -185,7 +185,6 @@ jobs:
               apt-get update && \
               apt-get install -y \
                 default-jdk && \
-              cd build && \
               ls /workspace && \
               ls /workspace/jni && \
               mvn clean test -DargLine="-Daws.accessKeyId=${AWS_ACCESS_KEY_ID} -Daws.secretKey=${AWS_SECRET_ACCESS_KEY} -Daws.sessionToken=${AWS_SESSION_TOKEN} -Djava.library.path=/workspace/jni -Dlog4j.configurationFile=log4j2.xml"'
