@@ -89,7 +89,7 @@ jobs:
                 default-jdk && \
               mkdir build && \
               cd build && \
-              cmake .. && \
+              cmake .. -DALIGNED_MEMORY_MODEL=ON && \
               make -j'
 
       - name: Build JNI (Windows)
