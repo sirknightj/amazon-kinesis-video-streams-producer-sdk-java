@@ -376,7 +376,7 @@ jobs:
         shell: bash
 
       - name: Generate heap usage graphs (Mac and Linux) (DemoAppMainWithHeapTracking)
-        if: ${{ (runner.os == 'macOS' || runner.os == 'linux') && matrix.sample == 'DemoAppMainWithHeapTracking' }}
+        if: ${{ (runner.os == 'macOS' || runner.os == 'linux') && matrix.platform.name != 'raspbian-armv7' && matrix.sample == 'DemoAppMainWithHeapTracking' }}
         env:
           DATA_FILE: memory-data.csv
         run: |
