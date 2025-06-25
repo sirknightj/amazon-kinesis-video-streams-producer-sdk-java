@@ -166,14 +166,14 @@ jobs:
           aws-region: ${{ secrets.AWS_REGION }}
 
       - name: Set up QEMU
-        if: ${{ matrix.platform.name == 'raspbian' }}
+        if: ${{ matrix.platform.name == 'raspbian-armv7' }}
         uses: docker/setup-qemu-action@v3
         with:
           image: tonistiigi/binfmt:qemu-v7.0.0-28
           platforms: arm
 
       - name: Run tests (Raspbian)
-        if: ${{ matrix.platform.name == 'raspbian' }}
+        if: ${{ matrix.platform.name == 'raspbian-armv7' }}
         run: |
           docker run --rm --platform linux/arm/v7 \
             -v ${{ github.workspace }}:/workspace \
@@ -191,7 +191,7 @@ jobs:
               mvn clean test -DargLine="-Daws.accessKeyId=${AWS_ACCESS_KEY_ID} -Daws.secretKey=${AWS_SECRET_ACCESS_KEY} -Daws.sessionToken=${AWS_SESSION_TOKEN} -Djava.library.path=/workspace/jni -Dlog4j.configurationFile=log4j2.xml"'
 
       - name: Run tests
-        if: ${{ matrix.platform.name != 'raspbian' }}
+        if: ${{ matrix.platform.name != 'raspbian-armv7' }}
         run: |
           mvn clean test -DargLine="-Daws.accessKeyId=${AWS_ACCESS_KEY_ID} -Daws.secretKey=${AWS_SECRET_ACCESS_KEY} -Daws.sessionToken=${AWS_SESSION_TOKEN} -Djava.library.path=${JNI_FOLDER} -Dlog4j.configurationFile=log4j2.xml"
         shell: bash
