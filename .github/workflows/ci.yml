@@ -186,6 +186,8 @@ jobs:
               apt-get install -y \
                 default-jdk && \
               cd build && \
+              ls /workspace && \
+              ls /workspace/jni && \
               mvn clean test -DargLine="-Daws.accessKeyId=${AWS_ACCESS_KEY_ID} -Daws.secretKey=${AWS_SECRET_ACCESS_KEY} -Daws.sessionToken=${AWS_SESSION_TOKEN} -Djava.library.path=/workspace/jni -Dlog4j.configurationFile=log4j2.xml"'
 
       - name: Run tests
@@ -277,7 +279,7 @@ jobs:
         shell: bash
 
       - name: Run the sample
-        if: ${{ runner.os == 'macOS' || runner.os == 'linux' }}
+        if: ${{ (runner.os == 'macOS' || runner.os == 'linux') && matrix.platform.name != 'raspbian-armv7' }}
         run: |
           set +e
 
