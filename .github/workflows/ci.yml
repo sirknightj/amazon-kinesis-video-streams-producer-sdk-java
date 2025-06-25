@@ -65,7 +65,7 @@ jobs:
           platforms: arm
 
       - name: Build JNI (Mac and Linux)
-        if: ${{ runner.os == 'macOS' || runner.os == 'linux' }}
+        if: ${{ (runner.os == 'macOS' || runner.os == 'linux') && matrix.platform.name != 'raspbian-armv7' }}
         run: |
           mkdir build
           cd build
@@ -363,7 +363,7 @@ jobs:
           exit /b %EXIT_CODE%
 
       - name: Generate memory and CPU graph (Mac and Linux)
-        if: ${{ runner.os == 'macOS' || runner.os == 'linux' }}
+        if: ${{ (runner.os == 'macOS' || runner.os == 'linux') && matrix.platform.name != 'raspbian-armv7' }}
         run: |
           DATA_FILE=$(find . -name 'process_*.txt' | head -n 1)
           COMMIT_HASH=$(git rev-parse --short HEAD)
@@ -407,7 +407,7 @@ jobs:
         shell: bash
 
       - name: Check uploaded media (Mac and Linux) (DemoAppMain)
-        if: ${{ (runner.os == 'macOS' || runner.os == 'linux') && matrix.sample == 'DemoAppMain' }}
+        if: ${{ (runner.os == 'macOS' || runner.os == 'linux') && matrix.platform.name != 'raspbian-armv7' && matrix.sample == 'DemoAppMain' }}
         working-directory: scripts/python/getmediavalidation/bin
         run: |
           python ./fetch_fragment_info.py --stream-name "$STREAM_NAME" --last 5m
@@ -431,7 +431,7 @@ jobs:
         shell: cmd
 
       - name: Upload memory and CPU graph (Mac and Linux)
-        if: ${{ runner.os == 'macOS' || runner.os == 'linux' }}
+        if: ${{ (runner.os == 'macOS' || runner.os == 'linux') && matrix.platform.name != 'raspbian-armv7' }}
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.STREAM_NAME }}-data
