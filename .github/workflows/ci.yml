@@ -46,9 +46,6 @@ jobs:
 
     runs-on: ${{ matrix.platform.os }}
 
-    env:
-      BRANCH_NAME: develop
-
     steps:
       - name: Checkout the repository
         uses: actions/checkout@v4
@@ -60,13 +57,40 @@ jobs:
           distribution: 'adopt'
           cache: maven
 
+      - name: Set up QEMU
+        if: ${{ matrix.platform.name == 'raspbian-armv7' }}
+        uses: docker/setup-qemu-action@v3
+        with:
+          image: tonistiigi/binfmt:qemu-v7.0.0-28
+          platforms: arm
+
       - name: Build JNI (Mac and Linux)
-        if: ${{ runner.os == 'macOS' || runner.os == 'linux' }}
+        if: ${{ (runner.os == 'macOS' || runner.os == 'linux') && matrix.platform.name != 'raspbian-armv7' }}
         run: |
           mkdir build
           cd build
           cmake ..
-          make -j
+          make
+
+      - name: Build JNI (Raspbian)
+        if: ${{ matrix.platform.name == 'raspbian-armv7' }}
+        run: |
+          docker run --rm --platform linux/arm/v7 \
+            -v ${{ github.workspace }}:/workspace \
+            -w /workspace \
+            arm32v7/debian:buster \
+            /bin/bash -c '
+              apt-get update && \
+              apt-get install -y \
+                build-essential \
+                cmake \
+                git \
+                pkg-config \
+                default-jdk && \
+              mkdir build && \
+              cd build && \
+              cmake .. -DALIGNED_MEMORY_MODEL=ON && \
+              make -j'
 
       - name: Build JNI (Windows)
         if: ${{ runner.os == 'Windows' }}
@@ -132,6 +156,7 @@ jobs:
           path: jni/
 
       - name: Build with Maven
+        if: ${{ matrix.platform.name != 'raspbian' }}
         run: mvn clean compile assembly:single
 
       - name: Configure AWS Credentials
@@ -140,7 +165,31 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
           aws-region: ${{ secrets.AWS_REGION }}
 
+      - name: Set up QEMU
+        if: ${{ matrix.platform.name == 'raspbian-armv7' }}
+        uses: docker/setup-qemu-action@v3
+        with:
+          image: tonistiigi/binfmt:qemu-v7.0.0-28
+          platforms: arm
+
+      - name: Run tests (Raspbian)
+        if: ${{ matrix.platform.name == 'raspbian-armv7' }}
+        run: |
+          docker run --rm --platform linux/arm/v7 \
+            -v ${{ github.workspace }}:/workspace \
+            -w /workspace \
+            -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY \
+            -e AWS_SESSION_TOKEN -e AWS_REGION -e AWS_KVS_LOG_LEVEL \
+            arm32v7/debian:buster \
+            /bin/bash -c '
+              apt-get update && \
+              apt-get install -y \
+                default-jdk \
+                maven && \
+              mvn clean test -DargLine="-Daws.accessKeyId=${AWS_ACCESS_KEY_ID} -Daws.secretKey=${AWS_SECRET_ACCESS_KEY} -Daws.sessionToken=${AWS_SESSION_TOKEN} -Djava.library.path=/workspace/jni -Dlog4j.configurationFile=log4j2.xml"'
+
       - name: Run tests
+        if: ${{ matrix.platform.name != 'raspbian-armv7' }}
         run: |
           mvn clean test -DargLine="-Daws.accessKeyId=${AWS_ACCESS_KEY_ID} -Daws.secretKey=${AWS_SECRET_ACCESS_KEY} -Daws.sessionToken=${AWS_SESSION_TOKEN} -Djava.library.path=${JNI_FOLDER} -Dlog4j.configurationFile=log4j2.xml"
         shell: bash
@@ -165,9 +214,11 @@ jobs:
     steps:
       - name: Checkout the repository
         uses: actions/checkout@v4
+        if: ${{ matrix.platform.name != 'raspbian-armv7' }}
 
       - name: Set up JDK
         uses: actions/setup-java@v4
+        if: ${{ matrix.platform.name != 'raspbian-armv7' }}
         with:
           java-version: ${{ matrix.java }}
           distribution: 'adopt'
@@ -175,11 +226,13 @@ jobs:
 
       - name: Set up Python 3.12
         uses: actions/setup-python@v5
+        if: ${{ matrix.platform.name != 'raspbian-armv7' }}
         with:
           python-version: "3.12"
 
       - name: Install Python dependencies
         working-directory: scripts/python/benchmarking
+        if: ${{ matrix.platform.name != 'raspbian-armv7' }}
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
@@ -188,22 +241,25 @@ jobs:
 
       - name: Download JNI Library
         uses: actions/download-artifact@v4
+        if: ${{ matrix.platform.name != 'raspbian-armv7' }}
         with:
           name: jni-library-${{ matrix.platform.name }}
           path: jni/
 
       - name: Build with Maven
+        if: ${{ matrix.platform.name != 'raspbian-armv7' }}
         run: mvn clean compile assembly:single
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
+        if: ${{ matrix.platform.name != 'raspbian-armv7' }}
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
           aws-region: ${{ secrets.AWS_REGION }}
 
       - name: Create the stream (DemoAppMain and DemoAppMainWithHeapTracking)
         # This sample needs a pre-created stream: `${NAME}`
-        if: ${{ matrix.sample == 'DemoAppMain' || matrix.sample == 'DemoAppMainWithHeapTracking' }}
+        if: ${{ (matrix.sample == 'DemoAppMain' || matrix.sample == 'DemoAppMainWithHeapTracking') && matrix.platform.name != 'raspbian-armv7'}}
         working-directory: scripts
         run: |
           ./prepareStream.sh "$STREAM_NAME"
@@ -212,7 +268,7 @@ jobs:
 
       - name: Create the stream (DemoAppCachedInfo)
         # This sample needs 2 pre-created streams: `${NAME}-account-1` and `${NAME}-account-2`
-        if: ${{ matrix.sample == 'DemoAppCachedInfo' }}
+        if: ${{ matrix.sample == 'DemoAppCachedInfo' && matrix.platform.name != 'raspbian-armv7' }}
         working-directory: scripts
         run: |
           ./prepareStream.sh "$STREAM_NAME-account-1"
@@ -221,7 +277,7 @@ jobs:
         shell: bash
 
       - name: Run the sample
-        if: ${{ runner.os == 'macOS' || runner.os == 'linux' }}
+        if: ${{ (runner.os == 'macOS' || runner.os == 'linux') && matrix.platform.name != 'raspbian-armv7' }}
         run: |
           set +e
 
@@ -307,7 +363,7 @@ jobs:
           exit /b %EXIT_CODE%
 
       - name: Generate memory and CPU graph (Mac and Linux)
-        if: ${{ runner.os == 'macOS' || runner.os == 'linux' }}
+        if: ${{ (runner.os == 'macOS' || runner.os == 'linux') && matrix.platform.name != 'raspbian-armv7' }}
         run: |
           DATA_FILE=$(find . -name 'process_*.txt' | head -n 1)
           COMMIT_HASH=$(git rev-parse --short HEAD)
@@ -320,7 +376,7 @@ jobs:
         shell: bash
 
       - name: Generate heap usage graphs (Mac and Linux) (DemoAppMainWithHeapTracking)
-        if: ${{ (runner.os == 'macOS' || runner.os == 'linux') && matrix.sample == 'DemoAppMainWithHeapTracking' }}
+        if: ${{ (runner.os == 'macOS' || runner.os == 'linux') && matrix.platform.name != 'raspbian-armv7' && matrix.sample == 'DemoAppMainWithHeapTracking' }}
         env:
           DATA_FILE: memory-data.csv
         run: |
@@ -351,7 +407,7 @@ jobs:
         shell: bash
 
       - name: Check uploaded media (Mac and Linux) (DemoAppMain)
-        if: ${{ (runner.os == 'macOS' || runner.os == 'linux') && matrix.sample == 'DemoAppMain' }}
+        if: ${{ (runner.os == 'macOS' || runner.os == 'linux') && matrix.platform.name != 'raspbian-armv7' && matrix.sample == 'DemoAppMain' }}
         working-directory: scripts/python/getmediavalidation/bin
         run: |
           python ./fetch_fragment_info.py --stream-name "$STREAM_NAME" --last 5m
@@ -375,9 +431,58 @@ jobs:
         shell: cmd
 
       - name: Upload memory and CPU graph (Mac and Linux)
-        if: ${{ runner.os == 'macOS' || runner.os == 'linux' }}
+        if: ${{ (runner.os == 'macOS' || runner.os == 'linux') && matrix.platform.name != 'raspbian-armv7' }}
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.STREAM_NAME }}-data
           path: output/
           retention-days: 7
+
+  commit-jni-files:
+    needs: [run-unit-tests, run-samples]
+    runs-on: ubuntu-latest
+
+    # If the JNI needs updating but the label wasn't attached at the PR creation time,
+    # you can manually re-trigger this action to run again after adding the label.
+    if: contains(github.event.pull_request.labels.*.name, 'jni-update')
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download JNI Libraries
+        uses: actions/download-artifact@v4
+        with:
+          pattern: jni-library-*
+          path: temp-jni
+
+      - name: Move JNI files to correct locations
+        run: |
+          mkdir -p src/main/resources/lib/{mac,mac-m1,windows,ubuntu,raspian}
+
+          # Windows
+          find temp-jni -name "*.dll" -exec cp {} src/main/resources/lib/windows/KinesisVideoProducerJNI.dll \;
+
+          # MacOS: Intel and Apple Silicon
+          find temp-jni -name "*macos-x86_64*" -exec cp {} src/main/resources/lib/mac/libKinesisVideoProducerJNI.dylib \;
+          find temp-jni -name "*macos-aarch64*" -exec cp {} src/main/resources/lib/mac-m1/libKinesisVideoProducerJNI.dylib \;
+          
+          # Linux: Ubuntu and Raspbian
+          # Note: The folder name is spelled wrong (missing a b), but for backwards compatibility we'll leave it like this
+          find temp-jni -name "*ubuntu*" -exec cp {} src/main/resources/lib/ubuntu/libKinesisVideoProducerJNI.so \;
+          find temp-jni -name "raspbian" -exec cp {} src/main/resources/lib/raspian/libKinesisVideoProducerJNI.so \;
+
+      - name: Check for changes
+        id: check_changes
+        run: |
+          git add src/main/resources/lib
+          git status --porcelain
+          echo "has_changes=$(git status --porcelain | wc -l)" >> $GITHUB_OUTPUT
+
+      - name: Commit and push if changed
+        if: ${{ steps.check_changes.outputs.has_changes != '0' }}
+        run: |
+          git config --local user.email "github-actions@github.com"
+          git config --local user.name "github-actions"
+          git commit -m "Update JNI libraries"
+          git push
