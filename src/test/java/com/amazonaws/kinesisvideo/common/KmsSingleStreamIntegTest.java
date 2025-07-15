@@ -21,6 +21,7 @@ import org.junit.Test;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import static com.amazonaws.kinesisvideo.util.StreamInfoConstants.HTTP_OK;
 import static org.junit.Assert.assertEquals;
@@ -116,9 +117,11 @@ public class KmsSingleStreamIntegTest extends ProducerTestBase {
         }
 
         final AmazonKinesisVideo awsSdkKinesisVideoClient = AmazonKinesisVideoClient.builder().build();
+        final String prefix = Optional.ofNullable(System.getenv("TEST_STREAMS_PREFIX")).orElse("");
         for (final String streamName : this.createdStreams) {
+            final String finalStreamName = prefix + streamName;
             try {
-                final DescribeStreamRequest describeStreamRequest = new DescribeStreamRequest().withStreamName(streamName);
+                final DescribeStreamRequest describeStreamRequest = new DescribeStreamRequest().withStreamName(finalStreamName);
                 final DescribeStreamResult describeStreamResult = awsSdkKinesisVideoClient.describeStream(describeStreamRequest);
 
                 final DeleteStreamRequest deleteStreamRequest = new DeleteStreamRequest()
@@ -126,7 +129,7 @@ public class KmsSingleStreamIntegTest extends ProducerTestBase {
                         .withCurrentVersion(describeStreamResult.getStreamInfo().getVersion());
                 awsSdkKinesisVideoClient.deleteStream(deleteStreamRequest);
             } catch (final Exception e) {
-                log.error("Failed to delete the stream: {}", streamName, e);
+                log.error("Failed to delete the stream: {}", finalStreamName, e);
             }
         }
 

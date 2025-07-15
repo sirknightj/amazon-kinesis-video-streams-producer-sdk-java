@@ -29,6 +29,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -218,9 +219,11 @@ public class KmsMultiStreamIntegTest extends ProducerTestBase {
         }
 
         final AmazonKinesisVideo awsSdkKinesisVideoClient = AmazonKinesisVideoClientBuilder.standard().build();
+        final String prefix = Optional.ofNullable(System.getenv("TEST_STREAMS_PREFIX")).orElse("");
         for (final String streamName : this.createdStreams) {
+            final String finalStreamName = prefix + streamName;
             try {
-                final DescribeStreamRequest describeStreamRequest = new DescribeStreamRequest().withStreamName(streamName);
+                final DescribeStreamRequest describeStreamRequest = new DescribeStreamRequest().withStreamName(finalStreamName);
                 final DescribeStreamResult describeStreamResult = awsSdkKinesisVideoClient.describeStream(describeStreamRequest);
 
                 final DeleteStreamRequest deleteStreamRequest = new DeleteStreamRequest()
