@@ -129,6 +129,7 @@ public class KmsSingleStreamIntegTest extends ProducerTestBase {
                         .withCurrentVersion(describeStreamResult.getStreamInfo().getVersion());
                 awsSdkKinesisVideoClient.deleteStream(deleteStreamRequest);
             } catch (final Exception e) {
+                failure = true;
                 log.error("Failed to delete the stream: {}", finalStreamName, e);
             }
         }

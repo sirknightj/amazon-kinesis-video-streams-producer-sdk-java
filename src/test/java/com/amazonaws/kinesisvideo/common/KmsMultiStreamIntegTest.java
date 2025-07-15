@@ -200,11 +200,13 @@ public class KmsMultiStreamIntegTest extends ProducerTestBase {
      */
     @After
     public void tearDown() {
+        boolean errored = false;
         for (final String keyId : this.createdKmsKeys) {
             try {
                 deleteKmsKey(keyId);
             } catch (final Exception e) {
                 log.warn("Failed to clean up KMS key {}: {}", keyId, e.getMessage());
+                errored = true;
             }
         }
 
@@ -216,6 +218,7 @@ public class KmsMultiStreamIntegTest extends ProducerTestBase {
             freeStreams();
         } catch (final Exception e) {
             log.warn("Failed to free streams: {}", e.getMessage());
+            errored = true;
         }
 
         final AmazonKinesisVideo awsSdkKinesisVideoClient = AmazonKinesisVideoClientBuilder.standard().build();
@@ -232,10 +235,13 @@ public class KmsMultiStreamIntegTest extends ProducerTestBase {
                 awsSdkKinesisVideoClient.deleteStream(deleteStreamRequest);
             } catch (final Exception e) {
                 log.error("Failed to delete the stream: {}", streamName, e);
+                errored = true;
             }
         }
 
         this.createdStreams.clear();
+
+        assertFalse("There was an issue in cleaning up the resources! Check the logs above.", errored);
     }
 
     /**
