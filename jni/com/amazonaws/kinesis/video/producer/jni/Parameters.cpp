@@ -21,7 +21,7 @@ BOOL setDeviceInfo(JNIEnv *env, jobject deviceInfo, PDeviceInfo pDeviceInfo)
     }
 
     // Null-initialize the DeviceInfo (and ClientInfo) structs embedded within it
-    MEMSET(&this.mDeviceInfo, 0x00, SIZEOF(mDeviceInfo));
+    MEMSET(pDeviceInfo, 0x00, SIZEOF(DeviceInfo));
 
     // Retrieve the methods and call it
     methodId = env->GetMethodID(cls, "getVersion", "()I");
@@ -124,6 +124,9 @@ BOOL setDeviceInfo(JNIEnv *env, jobject deviceInfo, PDeviceInfo pDeviceInfo)
         }
     }
 
+    // V1 fields
+    CHK(pDeviceInfo->version >= 1, STATUS_SUCCESS);
+
     methodId = env->GetMethodID(cls, "getClientId", "()Ljava/lang/String;");
     if (methodId == NULL) {
         DLOGW("Couldn't find method id getClientId");
@@ -162,7 +165,6 @@ BOOL setClientInfo(JNIEnv *env, jobject clientInfo, PClientInfo pClientInfo) {
     STATUS retStatus = STATUS_SUCCESS;
     jmethodID methodId = NULL;
     const char *retChars;
-    jobject kvsRetryStrategyCallbacks = NULL;
     jobject kvsRetryStrategy = NULL;
 
     CHECK(env != NULL && clientInfo != NULL && pClientInfo != NULL);
@@ -180,6 +182,7 @@ BOOL setClientInfo(JNIEnv *env, jobject clientInfo, PClientInfo pClientInfo) {
         DLOGW("Couldn't find method id getVersion");
     } else {
         pClientInfo->version = env->CallIntMethod(clientInfo, methodId);
+        DLOGI("Using ClientInfo version %d", pClientInfo->version);
         CHK_JVM_EXCEPTION(env);
     }
 
@@ -232,7 +235,7 @@ BOOL setClientInfo(JNIEnv *env, jobject clientInfo, PClientInfo pClientInfo) {
     }
 
     // V1 fields
-    CHK(pClientInfo >= 1, STATUS_SUCCESS);
+    CHK(pClientInfo->version >= 1, STATUS_SUCCESS);
 
     methodId = env->GetMethodID(cls, "getMetricLoggingPeriod", "()J");
     if (methodId == NULL) {
@@ -243,7 +246,7 @@ BOOL setClientInfo(JNIEnv *env, jobject clientInfo, PClientInfo pClientInfo) {
     }
 
     // V2 fields
-    CHK(pClientInfo >= 2, STATUS_SUCCESS);
+    CHK(pClientInfo->version >= 2, STATUS_SUCCESS);
 
     methodId = env->GetMethodID(cls, "getAutomaticStreamingFlags", "()I");
     if (methodId == NULL) {
@@ -268,13 +271,13 @@ BOOL setClientInfo(JNIEnv *env, jobject clientInfo, PClientInfo pClientInfo) {
         kvsRetryStrategy = (jobject) env->CallObjectMethod(clientInfo, methodId);
         CHK_JVM_EXCEPTION(env);
 
-        if (kvsRetryStrategy != NULL && !setKvsRetryStrategy(env, kvsRetryStrategy, &pClientInfo->kvsRetryStrategy)) {
+        if (kvsRetryStrategy != NULL && !setKvsRetryStrategy(env, kvsRetryStrategy, &pClientInfo->kvsRetryStrategy, &pClientInfo->kvsRetryStrategyCallbacks)) {
             DLOGW("Failed getting/setting KvsRetryStrategy.");
         }
     }
 
     // V3 fields
-    CHK(pClientInfo >= 3, STATUS_SUCCESS);
+    CHK(pClientInfo->version >= 3, STATUS_SUCCESS);
 
     methodId = env->GetMethodID(cls, "getServiceConnectionTimeout", "()J");
     if (methodId == NULL) {
@@ -296,7 +299,8 @@ CleanUp:
     return STATUS_FAILED(retStatus) ? FALSE : TRUE;
 }
 
-BOOL setKvsRetryStrategy(JNIEnv *env, jobject kvsRetryStrategy, PKvsRetryStrategy pKvsRetryStrategy)
+BOOL setKvsRetryStrategy(JNIEnv *env, jobject kvsRetryStrategy, PKvsRetryStrategy pKvsRetryStrategy,
+                         PKvsRetryStrategyCallbacks pCallbacks)
 {
     STATUS retStatus = STATUS_SUCCESS;
     jmethodID methodId = NULL;
@@ -334,27 +338,33 @@ BOOL setKvsRetryStrategy(JNIEnv *env, jobject kvsRetryStrategy, PKvsRetryStrateg
                 
                 // Convert Java config to native config
                 if (setExponentialBackoffRetryStrategyConfig(env, exponentialBackoffConfig, pNativeConfig)) {
-                    DLOGI("Successfully converted Java config to native config");
+                    DLOGE("Successfully converted Java config to native config");
                 } else {
-                    DLOGW("Failed to convert Java config to native config, using default");
+                    DLOGE("Failed to convert Java config to native config, using default");
                     MEMFREE(pNativeConfig);
                     pNativeConfig = NULL;
                 }
             } else {
-                DLOGI("No custom config provided, PIC will use defaults");
+                DLOGE("No custom config provided, PIC will use defaults");
             }
         } else {
-            DLOGW("Couldn't find getExponentialBackoffConfig method");
+            DLOGE("Couldn't find getExponentialBackoffConfig method");
         }
     }
 
     // Set the config pointer (NULL means use PIC defaults)
     pKvsRetryStrategy->pRetryStrategyConfig = (PRetryStrategyConfig) pNativeConfig;
+    DLOGE("The retry stratgy config is: %p", pNativeConfig);
 
     // PIC will handle setting pRetryStrategy when the strategy is created
     pKvsRetryStrategy->pRetryStrategy = NULL;
+
+    pCallbacks->createRetryStrategyFn = exponentialBackoffRetryStrategyCreate;
+    pCallbacks->freeRetryStrategyFn = exponentialBackoffRetryStrategyFree;
+    pCallbacks->executeRetryStrategyFn = getExponentialBackoffRetryStrategyWaitTime;
+    pCallbacks->getCurrentRetryAttemptNumberFn = getExponentialBackoffRetryCount;
     
-    DLOGI("Successfully configured retry strategy: type=%d, config=%p", 
+    DLOGE("Successfully configured retry strategy: type=%d, config=%p",
           pKvsRetryStrategy->retryStrategyType, pKvsRetryStrategy->pRetryStrategyConfig);
 
 CleanUp:
@@ -391,8 +401,8 @@ BOOL setExponentialBackoffRetryStrategyConfig(JNIEnv *env, jobject exponentialBa
         long javaValue = env->CallLongMethod(exponentialBackoffConfig, methodId);
         CHK_JVM_EXCEPTION(env);
         pConfig->maxRetryWaitTime = (javaValue == 0) ? 
-            (DEFAULT_KVS_MAX_WAIT_TIME_MILLISECONDS * HUNDREDS_OF_NANOS_IN_A_MILLISECOND) : 
-            ((UINT64) javaValue * HUNDREDS_OF_NANOS_IN_A_MILLISECOND);
+            (DEFAULT_KVS_MAX_WAIT_TIME_MILLISECONDS) :
+            ((UINT64) javaValue);
     } else {
         DLOGW("Couldn't find method id getMaxRetryWaitTimeMs, using PIC default");
         pConfig->maxRetryWaitTime = DEFAULT_KVS_MAX_WAIT_TIME_MILLISECONDS * HUNDREDS_OF_NANOS_IN_A_MILLISECOND;
@@ -404,11 +414,11 @@ BOOL setExponentialBackoffRetryStrategyConfig(JNIEnv *env, jobject exponentialBa
         long javaValue = env->CallLongMethod(exponentialBackoffConfig, methodId);
         CHK_JVM_EXCEPTION(env);
         pConfig->retryFactorTime = (javaValue == 0) ? 
-            (DEFAULT_KVS_RETRY_TIME_FACTOR_MILLISECONDS * HUNDREDS_OF_NANOS_IN_A_MILLISECOND) : 
-            ((UINT64) javaValue * HUNDREDS_OF_NANOS_IN_A_MILLISECOND);
+            (DEFAULT_KVS_RETRY_TIME_FACTOR_MILLISECONDS) :
+            ((UINT64) javaValue);
     } else {
         DLOGW("Couldn't find method id getRetryFactorTimeMs, using PIC default");
-        pConfig->retryFactorTime = DEFAULT_KVS_RETRY_TIME_FACTOR_MILLISECONDS * HUNDREDS_OF_NANOS_IN_A_MILLISECOND;
+        pConfig->retryFactorTime = DEFAULT_KVS_RETRY_TIME_FACTOR_MILLISECONDS;
     }
 
     // Get minTimeToResetRetryState (0 = use PIC default)
@@ -417,11 +427,11 @@ BOOL setExponentialBackoffRetryStrategyConfig(JNIEnv *env, jobject exponentialBa
         long javaValue = env->CallLongMethod(exponentialBackoffConfig, methodId);
         CHK_JVM_EXCEPTION(env);
         pConfig->minTimeToResetRetryState = (javaValue == 0) ? 
-            (DEFAULT_KVS_MIN_TIME_TO_RESET_RETRY_STATE_MILLISECONDS * HUNDREDS_OF_NANOS_IN_A_MILLISECOND) : 
-            ((UINT64) javaValue * HUNDREDS_OF_NANOS_IN_A_MILLISECOND);
+            (DEFAULT_KVS_MIN_TIME_TO_RESET_RETRY_STATE_MILLISECONDS) :
+            ((UINT64) javaValue);
     } else {
         DLOGW("Couldn't find method id getMinTimeToResetRetryStateMs, using PIC default");
-        pConfig->minTimeToResetRetryState = DEFAULT_KVS_MIN_TIME_TO_RESET_RETRY_STATE_MILLISECONDS * HUNDREDS_OF_NANOS_IN_A_MILLISECOND;
+        pConfig->minTimeToResetRetryState = DEFAULT_KVS_MIN_TIME_TO_RESET_RETRY_STATE_MILLISECONDS;
     }
 
     methodId = env->GetMethodID(cls, "getJitterTypeValue", "()I");

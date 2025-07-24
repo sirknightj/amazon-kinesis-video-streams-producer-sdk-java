@@ -17,6 +17,7 @@ import com.amazonaws.kinesisvideo.client.KinesisVideoClientConfiguration;
 import com.amazonaws.kinesisvideo.internal.producer.jni.NativeKinesisVideoProducerJni;
 import com.amazonaws.kinesisvideo.java.auth.JavaCredentialsFactory;
 import com.amazonaws.kinesisvideo.producer.Tag;
+import com.amazonaws.services.kinesisvideo.AmazonKinesisVideoClient;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import com.amazonaws.kinesisvideo.internal.client.NativeKinesisVideoClient;
@@ -179,6 +180,10 @@ public class ProducerTestBase {
         }
     }
 
+    protected void free() throws ProducerException {
+        kinesisVideoProducer.free();
+    }
+
     /**
      * This method is used to create a stream with the specified information using the producer created as a part of
      * the createProducer method
@@ -191,18 +196,21 @@ public class ProducerTestBase {
      */
     protected KinesisVideoProducerStream createTestStream(String streamName, StreamInfo.StreamingType streamingType,
                                                           long maxLatency, long bufferDuration) {
-        return createTestStream(streamName, streamingType, maxLatency, bufferDuration, NAL_ADAPTATION_FLAG_NONE);
+        return createTestStream(streamName, streamingType, maxLatency, bufferDuration, NAL_ADAPTATION_FLAG_NONE, false);
     }
 
     protected KinesisVideoProducerStream createTestStream(String streamName, StreamInfo.StreamingType streamingType,
-                                                          long maxLatency, long bufferDuration, StreamInfo.NalAdaptationFlags nalAdaptationFlags) {
+                                                          long maxLatency, long bufferDuration, StreamInfo.NalAdaptationFlags nalAdaptationFlags, boolean skipPreparation) {
         KinesisVideoProducerStream kinesisVideoProducerStream = null;
         
         final byte[] codecPrivateData = ProducerTestCPDs.getTestCPD(nalAdaptationFlags);
 
         final String prefix = Optional.ofNullable(System.getenv("TEST_STREAMS_PREFIX")).orElse("");
         final String finalStreamName = prefix + streamName;
-        prepareStream(finalStreamName);
+
+        if (!skipPreparation) {
+            prepareStream(finalStreamName);
+        }
 
         final StreamInfo streamInfo = new StreamInfo(
                 StreamInfo.STREAM_INFO_CURRENT_VERSION,
@@ -296,6 +304,7 @@ public class ProducerTestBase {
 
                     final DescribeStreamResult describeStreamResult = kvs.describeStream(describeStreamRequest);
                     log.debug("Stream exists now. ARN: {}", describeStreamResult.getStreamInfo().getStreamARN());
+                    break;
                 } catch (final Exception e) {
                     log.info("Stream is still creating... {}/{}", i, 3, e);
                     try {
@@ -331,6 +340,24 @@ public class ProducerTestBase {
         } catch (ProducerException e) {
             e.printStackTrace();
             fail();
+        }
+    }
+
+    protected void deleteStream(final String streamName) {
+        final AmazonKinesisVideo awsSdkKinesisVideoClient = AmazonKinesisVideoClient.builder().build();
+        final String prefix = Optional.ofNullable(System.getenv("TEST_STREAMS_PREFIX")).orElse("");
+        final String finalStreamName = prefix + streamName;
+        try {
+            final DescribeStreamRequest describeStreamRequest = new DescribeStreamRequest().withStreamName(finalStreamName);
+            final DescribeStreamResult describeStreamResult = awsSdkKinesisVideoClient.describeStream(describeStreamRequest);
+
+            final DeleteStreamRequest deleteStreamRequest = new DeleteStreamRequest()
+                    .withStreamARN(describeStreamResult.getStreamInfo().getStreamARN())
+                    .withCurrentVersion(describeStreamResult.getStreamInfo().getVersion());
+            awsSdkKinesisVideoClient.deleteStream(deleteStreamRequest);
+        } catch (final Exception e) {
+            log.error("Failed to delete the stream: {}", finalStreamName, e);
+            fail(e.getMessage());
         }
     }
 

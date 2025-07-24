@@ -67,7 +67,8 @@ public class PutFrameNalAdaptionFlagsTest extends ProducerTestBase {
 
         // Create a test stream with the appropriate NAL adaptation flag
         kinesisVideoProducerStream = createTestStream(testStreamName,
-                StreamInfo.StreamingType.STREAMING_TYPE_REALTIME, TEST_LATENCY, TEST_BUFFER_DURATION, this.nalAdaptationFlags);
+                StreamInfo.StreamingType.STREAMING_TYPE_REALTIME, TEST_LATENCY, TEST_BUFFER_DURATION, this.nalAdaptationFlags,
+                false);
 
         // Create a non-direct ByteBuffer which will cause JNI to return null when calling GetDirectBufferAddress
         final ByteBuffer nonDirectBuffer = ByteBuffer.allocate(10);

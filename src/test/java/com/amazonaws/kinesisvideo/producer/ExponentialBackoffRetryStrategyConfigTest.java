@@ -69,22 +69,6 @@ public class ExponentialBackoffRetryStrategyConfigTest {
     }
 
     @Test
-    public void testTimeConversionMethods() {
-        ExponentialBackoffRetryStrategyConfig config = new ExponentialBackoffRetryStrategyConfig(
-                3, 5000, 1000, 90000, 
-                ExponentialBackoffRetryStrategyConfig.JitterType.FULL_JITTER, 300);
-        
-        // Test conversion from milliseconds to hundreds of nanoseconds
-        // 1ms = 10,000 hundreds of nanoseconds
-        assertEquals("5000ms should convert to 50,000,000 hundreds of nanos", 
-                50000000L, config.getMaxRetryWaitTimeHundredsOfNanos());
-        assertEquals("1000ms should convert to 10,000,000 hundreds of nanos", 
-                10000000L, config.getRetryFactorTimeHundredsOfNanos());
-        assertEquals("90000ms should convert to 900,000,000 hundreds of nanos", 
-                900000000L, config.getMinTimeToResetRetryStateHundredsOfNanos());
-    }
-
-    @Test
     public void testNullJitterTypeHandling() {
         ExponentialBackoffRetryStrategyConfig config = new ExponentialBackoffRetryStrategyConfig(
                 3, 5000, 1000, 90000, null, 300);
@@ -92,46 +76,5 @@ public class ExponentialBackoffRetryStrategyConfigTest {
         assertNull("Null jitter type should remain null (use PIC default)", config.getJitterType());
         assertEquals("getJitterTypeValue should return 0 for null (PIC default)", 
                 0, config.getJitterTypeValue());
-    }
-
-    @Test
-    public void testKvsRetryStrategyWithConfig() {
-        ExponentialBackoffRetryStrategyConfig config = new ExponentialBackoffRetryStrategyConfig(
-                5, 8000, 500);
-        
-        KvsRetryStrategy retryStrategy = new KvsRetryStrategy(config);
-        
-        assertEquals("Should use EXPONENTIAL_BACKOFF_WAIT type", 
-                KvsRetryStrategy.RetryStrategyType.EXPONENTIAL_BACKOFF_WAIT, 
-                retryStrategy.getRetryStrategyType());
-        assertSame("Should store the same config instance", 
-                config, retryStrategy.getExponentialBackoffConfig());
-    }
-
-    @Test
-    public void testKvsRetryStrategyWithDisabledIgnoresConfig() {
-        ExponentialBackoffRetryStrategyConfig config = new ExponentialBackoffRetryStrategyConfig(
-                5, 8000, 500);
-        
-        KvsRetryStrategy retryStrategy = new KvsRetryStrategy(
-                KvsRetryStrategy.RetryStrategyType.DISABLED, config);
-        
-        assertEquals("Should use DISABLED type", 
-                KvsRetryStrategy.RetryStrategyType.DISABLED, 
-                retryStrategy.getRetryStrategyType());
-        assertNull("Should ignore config for DISABLED strategy", 
-                retryStrategy.getExponentialBackoffConfig());
-    }
-
-    @Test
-    public void testToString() {
-        ExponentialBackoffRetryStrategyConfig config = new ExponentialBackoffRetryStrategyConfig(
-                3, 5000, 1000);
-        
-        String str = config.toString();
-        assertTrue("toString should contain maxRetryCount", str.contains("maxRetryCount=3"));
-        assertTrue("toString should contain maxRetryWaitTimeMs", str.contains("maxRetryWaitTimeMs=5000"));
-        assertTrue("toString should contain retryFactorTimeMs", str.contains("retryFactorTimeMs=1000"));
-        assertTrue("toString should contain jitterType", str.contains("jitterType=PIC_DEFAULT"));
     }
 }

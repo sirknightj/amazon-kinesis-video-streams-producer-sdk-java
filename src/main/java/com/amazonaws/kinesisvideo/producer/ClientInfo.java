@@ -13,12 +13,13 @@ public class ClientInfo {
      */
     public static final int CLIENT_INFO_CURRENT_VERSION = 3;
     public static final int DEFAULT_LOG_LEVEL = 4;
+    public static final int LOG_LEVEL_DEBUG = 1;
 
     public static enum AutomaticStreamingFlags {
         AUTOMATIC_STREAMING_INTERMITTENT_PRODUCER(0), AUTOMATIC_STREAMING_ALWAYS_CONTINUOUS(256);
         private final int streamingFlagValue;
 
-        private AutomaticStreamingFlags(int streamingFlagValue) {
+        private AutomaticStreamingFlags(final int streamingFlagValue) {
             this.streamingFlagValue = streamingFlagValue;
         }
 
@@ -28,20 +29,21 @@ public class ClientInfo {
 
     }
 
-    private final int mVersion;
-    private final long mCreateClientTimeout;
-    private final long mCreateStreamTimeout;
-    private final long mStopStreamTimeout;
-    private final long mOfflineBufferAvailabilityTimeout;
-    private final int mLogLevel;
-    private final boolean mLogMetric;
-    private final AutomaticStreamingFlags mAutomaticStreamingFlags;
-    private final long mServiceCallCompletionTimeout;
-    private final long mServiceCallConnectionTimeout;
-    private final long mMetricLoggingPeriod;
-    private final long mReservedCallbackPeriod;
-    private final KvsRetryStrategy mKvsRetryStrategy;
+    private int mVersion;
+    private long mCreateClientTimeout;
+    private long mCreateStreamTimeout;
+    private long mStopStreamTimeout;
+    private long mOfflineBufferAvailabilityTimeout;
+    private int mLogLevel;
+    private boolean mLogMetric;
+    private AutomaticStreamingFlags mAutomaticStreamingFlags;
+    private long mServiceCallCompletionTimeout;
+    private long mServiceCallConnectionTimeout;
+    private long mMetricLoggingPeriod;
+    private long mReservedCallbackPeriod;
+    private KvsRetryStrategy mKvsRetryStrategy;
 
+    @Deprecated
     public ClientInfo() {
         mVersion = CLIENT_INFO_CURRENT_VERSION;
         mCreateClientTimeout = 0L;
@@ -58,6 +60,7 @@ public class ClientInfo {
         mKvsRetryStrategy = null;
     }
 
+    @Deprecated
     public ClientInfo(final long createClientTimeout, final long createStreamTimeout, final long stopStreamTimeout,
                       final long offlineBufferAvailabilityTimeout, final int logLevel,
                       final boolean logMetric, final long serviceCallCompletionTimeout, final long serviceCallConnectionTimeout) {
@@ -66,6 +69,7 @@ public class ClientInfo {
                 serviceCallCompletionTimeout, serviceCallConnectionTimeout, 0L, 0L, null);
     }
 
+    @Deprecated
     public ClientInfo(final long createClientTimeout, final long createStreamTimeout, final long stopStreamTimeout,
                       final long offlineBufferAvailabilityTimeout, final int logLevel,
                       final boolean logMetric, final AutomaticStreamingFlags flag, final long serviceCallCompletionTimeout,
@@ -74,6 +78,7 @@ public class ClientInfo {
                 logLevel, logMetric, flag, serviceCallCompletionTimeout, serviceCallConnectionTimeout, 0L, 0L, null);
     }
 
+    @Deprecated
     public ClientInfo(final long createClientTimeout, final long createStreamTimeout, final long stopStreamTimeout,
                       final long offlineBufferAvailabilityTimeout, final int logLevel,
                       final boolean logMetric, final AutomaticStreamingFlags flag, final long serviceCallCompletionTimeout,
@@ -93,6 +98,85 @@ public class ClientInfo {
         mReservedCallbackPeriod = reservedCallbackPeriod;
         mKvsRetryStrategy = kvsRetryStrategy;
     }
+
+    public static ClientInfo createClientInfoV0(final long createClientTimeout, final long createStreamTimeout, final long stopStreamTimeout,
+                                                final long offlineBufferAvailabilityTimeout, final int logLevel, final boolean logMetric) {
+        return new ClientInfo(createClientTimeout, createStreamTimeout, stopStreamTimeout, offlineBufferAvailabilityTimeout, logLevel, logMetric);
+    }
+
+    // V0 constructor
+    private ClientInfo(final long createClientTimeout, final long createStreamTimeout, final long stopStreamTimeout,
+                       final long offlineBufferAvailabilityTimeout, final int logLevel, final boolean logMetric) {
+        this.mVersion = 0;
+        this.mCreateClientTimeout = createClientTimeout;
+        this.mCreateStreamTimeout = createStreamTimeout;
+        this.mStopStreamTimeout = stopStreamTimeout;
+        this.mOfflineBufferAvailabilityTimeout = offlineBufferAvailabilityTimeout;
+        this.mLogLevel = logLevel;
+        this.mLogMetric = logMetric;
+    }
+
+    public static ClientInfo createClientInfoV1(final long createClientTimeout, final long createStreamTimeout, final long stopStreamTimeout,
+                                                final long offlineBufferAvailabilityTimeout, final int logLevel, final boolean logMetric, final long metricLoggingPeriod) {
+        return new ClientInfo(createClientTimeout, createStreamTimeout, stopStreamTimeout, offlineBufferAvailabilityTimeout, logLevel, logMetric, metricLoggingPeriod);
+    }
+
+    // V1 constructor
+    private ClientInfo(final long createClientTimeout, final long createStreamTimeout, final long stopStreamTimeout,
+                       final long offlineBufferAvailabilityTimeout, final int logLevel, final boolean logMetric,
+                       final long metricLoggingPeriod) {
+        this(createClientTimeout, createStreamTimeout, stopStreamTimeout, offlineBufferAvailabilityTimeout, logLevel, logMetric);
+
+        this.mVersion = 1;
+        this.mMetricLoggingPeriod = metricLoggingPeriod;
+    }
+
+    public static ClientInfo createClientInfoV2(final long createClientTimeout, final long createStreamTimeout, final long stopStreamTimeout,
+                                                final long offlineBufferAvailabilityTimeout, final int logLevel, final boolean logMetric,
+                                                final long metricLoggingPeriod, final AutomaticStreamingFlags automaticStreamingFlags,
+                                                final long reservedCallbackPeriod, KvsRetryStrategy kvsRetryStrategy) {
+        return new ClientInfo(createClientTimeout, createStreamTimeout, stopStreamTimeout, offlineBufferAvailabilityTimeout, logLevel,
+                logMetric, metricLoggingPeriod, automaticStreamingFlags, reservedCallbackPeriod, kvsRetryStrategy);
+    }
+
+    // V2 constructor
+    private ClientInfo(final long createClientTimeout, final long createStreamTimeout, final long stopStreamTimeout,
+                       final long offlineBufferAvailabilityTimeout, final int logLevel, final boolean logMetric,
+                       final long metricLoggingPeriod, final AutomaticStreamingFlags automaticStreamingFlags,
+                       final long reservedCallbackPeriod, KvsRetryStrategy kvsRetryStrategy) {
+        this(createClientTimeout, createStreamTimeout, stopStreamTimeout, offlineBufferAvailabilityTimeout, logLevel, logMetric);
+
+        this.mVersion = 2;
+        this.mMetricLoggingPeriod = metricLoggingPeriod;
+        this.mAutomaticStreamingFlags = automaticStreamingFlags;
+        this.mReservedCallbackPeriod = reservedCallbackPeriod;
+        this.mKvsRetryStrategy = kvsRetryStrategy;
+    }
+
+    public static ClientInfo createClientInfoV3(final long createClientTimeout, final long createStreamTimeout, final long stopStreamTimeout,
+                                                final long offlineBufferAvailabilityTimeout, final int logLevel, final boolean logMetric,
+                                                final long metricLoggingPeriod, final AutomaticStreamingFlags automaticStreamingFlags,
+                                                final long reservedCallbackPeriod, final KvsRetryStrategy kvsRetryStrategy,
+                                                final long serviceCallCompletionTimeout, final long serviceCallConnectionTimeout) {
+        return new ClientInfo(createClientTimeout, createStreamTimeout, stopStreamTimeout, offlineBufferAvailabilityTimeout, logLevel,
+                logMetric, metricLoggingPeriod, automaticStreamingFlags, reservedCallbackPeriod, kvsRetryStrategy,
+                serviceCallCompletionTimeout, serviceCallConnectionTimeout);
+    }
+
+    // V3 constructor
+    private ClientInfo(final long createClientTimeout, final long createStreamTimeout, final long stopStreamTimeout,
+                       final long offlineBufferAvailabilityTimeout, final int logLevel, final boolean logMetric,
+                       final long metricLoggingPeriod, final AutomaticStreamingFlags automaticStreamingFlags,
+                       final long reservedCallbackPeriod, final KvsRetryStrategy kvsRetryStrategy,
+                       final long serviceCallCompletionTimeout, final long serviceCallConnectionTimeout) {
+        this(createClientTimeout, createStreamTimeout, stopStreamTimeout, offlineBufferAvailabilityTimeout, logLevel, logMetric,
+                metricLoggingPeriod, automaticStreamingFlags, reservedCallbackPeriod, kvsRetryStrategy);
+
+        this.mVersion = 3;
+        this.mServiceCallCompletionTimeout = serviceCallCompletionTimeout;
+        this.mServiceCallConnectionTimeout = serviceCallConnectionTimeout;
+    }
+
 
     public int getVersion() {
         return mVersion;
@@ -123,6 +207,9 @@ public class ClientInfo {
     }
 
     public int getAutomaticStreamingFlags() {
+        if (mAutomaticStreamingFlags == null) {
+            return 0;
+        }
         return mAutomaticStreamingFlags.getStreamingFlagValue();
     }
 

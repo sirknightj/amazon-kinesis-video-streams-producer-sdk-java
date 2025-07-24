@@ -1,5 +1,7 @@
 package com.amazonaws.kinesisvideo.producer;
 
+import javax.annotation.Nullable;
+
 /**
  * Configuration for exponential backoff retry strategy.
  * This maps to the native ExponentialBackoffRetryStrategyConfig struct in PIC.
@@ -11,10 +13,36 @@ public class ExponentialBackoffRetryStrategyConfig {
 
     /**
      * Jitter types that correspond to the native ExponentialBackoffJitterType enum
+     * <p>
+     *     Jitter is added after the calculated wait time. For example for the default configuration in PIC:
+     * </p>
+     * <ol>
+     *     <li>Wait: 1000ms + jitter</li>
+     *     <li>Wait: 2000ms + jitter</li>
+     *     <li>Wait: 4000ms + jitter</li>
+     *     <li>Wait: 8000ms + jitter</li>
+     *     <li>Wait: 16000ms + jitter</li>
+     *     <li>Wait: 16000ms + jitter</li>
+     *     <li>Wait: 16000ms + jitter</li>
+     * </ol>
      */
     public enum JitterType {
+        /**
+         * jitter = random number between {@code [0, wait time)}
+         * <p>
+         *     This means the calculated wait time can be at most doubled.
+         * </p>
+         */
         FULL_JITTER(0x01),
+        /**
+         * jitter = random number between {@code [0, jitter factor)}
+         *
+         * @see #jitterFactor
+         */
         FIXED_JITTER(0x02),
+        /**
+         * jitter = 0
+         */
         NO_JITTER(0x03);
 
         private final int value;
@@ -95,7 +123,7 @@ public class ExponentialBackoffRetryStrategyConfig {
      */
     public ExponentialBackoffRetryStrategyConfig(final long maxRetryCount, final long maxRetryWaitTimeMs,
                                                  final long retryFactorTimeMs, final long minTimeToResetRetryStateMs,
-                                                 final JitterType jitterType, final long jitterFactor) {
+                                                 @Nullable final JitterType jitterType, final long jitterFactor) {
         this.maxRetryCount = maxRetryCount;
         this.maxRetryWaitTimeMs = maxRetryWaitTimeMs;
         this.retryFactorTimeMs = retryFactorTimeMs;
@@ -120,6 +148,7 @@ public class ExponentialBackoffRetryStrategyConfig {
         return this.minTimeToResetRetryStateMs;
     }
 
+    @Nullable
     public JitterType getJitterType() {
         return this.jitterType;
     }
