@@ -10,13 +10,19 @@ import com.amazonaws.kinesisvideo.producer.ProducerException;
 import com.amazonaws.kinesisvideo.producer.StorageInfo;
 import com.amazonaws.kinesisvideo.producer.StreamInfo;
 import com.amazonaws.kinesisvideo.producer.Tag;
+import com.amazonaws.kinesisvideo.util.LogCaptureRule;
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.LogManager;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.Timeout;
 
 import java.nio.ByteBuffer;
+import java.util.List;
 
+import static com.amazonaws.kinesisvideo.producer.ProducerException.STATUS_OPERATION_TIMED_OUT;
 import static com.amazonaws.kinesisvideo.producer.ProducerException.STATUS_SUCCESS;
 import static com.amazonaws.kinesisvideo.producer.Time.HUNDREDS_OF_NANOS_IN_A_MILLISECOND;
 import static org.junit.Assert.assertEquals;
@@ -37,12 +43,20 @@ import static org.junit.Assert.fail;
  */
 public class RetryStrategyTest extends ProducerTestBase {
 
+    private static final org.apache.logging.log4j.Logger log = LogManager.getLogger(RetryStrategyTest.class);
+
     private static final int STORAGE_INFO_VERSION_ZERO = 0;
     private static final int ONE_SECOND_HUNDREDS_OF_NANOS = 1000 * 10000;
     private static final int TEN_SECONDS_HUNDREDS_OF_NANOS = 10 * ONE_SECOND_HUNDREDS_OF_NANOS;
 
+    private static final long STATUS_EXPONENTIAL_BACKOFF_RETRIES_EXHAUSTED = 0x4000002B;
+    private static final long STATUS_DESCRIBE_STREAM_CALL_FAILED = 0x52000011L;
+
     @Rule
-    public Timeout globalTimeout = Timeout.seconds(15);
+    public Timeout globalTimeout = Timeout.seconds(30);
+
+    @Rule
+    public LogCaptureRule logCapture = new LogCaptureRule();
 
     private StorageInfo storageInfo;
 
@@ -60,6 +74,11 @@ public class RetryStrategyTest extends ProducerTestBase {
         this.storageInfo = new StorageInfo(STORAGE_INFO_VERSION_ZERO,
                 StorageInfo.DeviceStorageType.DEVICE_STORAGE_TYPE_IN_MEM, storageSizeBytes,
                 spillRatioPercent, rootDirectory);
+    }
+
+    @After
+    public void tearDown() {
+        // LogCaptureRule handles cleanup automatically
     }
 
 
@@ -102,7 +121,7 @@ public class RetryStrategyTest extends ProducerTestBase {
 
     @Test
     @SuppressWarnings("ConstantConditions")
-    public void test_null_retryStrategy_is_accepted() throws ProducerException {
+    public void givenNullRetryStrategy_whenCreatingProducer_thenStreamingSucceeds() throws ProducerException {
 
         final KvsRetryStrategy kvsRetryStrategy = null;
 
@@ -121,7 +140,7 @@ public class RetryStrategyTest extends ProducerTestBase {
 
     @Test
     @SuppressWarnings("ConstantConditions")
-    public void test_default_retryStrategy_is_accepted() throws ProducerException {
+    public void givenDefaultRetryStrategy_whenCreatingProducer_thenStreamingSucceeds() throws ProducerException {
 
         final KvsRetryStrategy kvsRetryStrategy = new KvsRetryStrategy();
 
@@ -140,7 +159,7 @@ public class RetryStrategyTest extends ProducerTestBase {
 
     @Test
     @SuppressWarnings("ConstantConditions")
-    public void test_disabled_retryStrategy_is_accepted() throws ProducerException {
+    public void givenDisabledRetryStrategy_whenCreatingProducer_thenStreamingSucceeds() throws ProducerException {
 
         final KvsRetryStrategy kvsRetryStrategy = new KvsRetryStrategy(KvsRetryStrategy.RetryStrategyType.DISABLED);
 
@@ -159,7 +178,7 @@ public class RetryStrategyTest extends ProducerTestBase {
 
     @Test
     @SuppressWarnings("ConstantConditions")
-    public void test_exponentialBackOff_retryStrategy_is_accepted() throws ProducerException {
+    public void givenExponentialBackoffRetryStrategy_whenCreatingProducer_thenStreamingSucceeds() throws ProducerException {
 
         final KvsRetryStrategy kvsRetryStrategy = new KvsRetryStrategy(KvsRetryStrategy.RetryStrategyType.EXPONENTIAL_BACKOFF_WAIT);
 
@@ -178,7 +197,7 @@ public class RetryStrategyTest extends ProducerTestBase {
 
     @Test
     @SuppressWarnings("ConstantConditions")
-    public void test_retryStrategy_using_PIC_defaults_is_accepted() throws ProducerException {
+    public void givenRetryStrategyWithPicDefaults_whenCreatingProducer_thenStreamingSucceeds() throws ProducerException {
 
         final ExponentialBackoffRetryStrategyConfig exponentialBackoffStrategyConfig =
                 new ExponentialBackoffRetryStrategyConfig();
@@ -200,12 +219,12 @@ public class RetryStrategyTest extends ProducerTestBase {
 
     @Test
     @SuppressWarnings({"ConstantConditions", "ExtractMethodRecommender"})
-    public void test_configured_retryStrategy_is_accepted() throws ProducerException {
+    public void givenCustomConfiguredRetryStrategy_whenCreatingProducer_thenStreamingSucceeds() throws ProducerException {
 
         final long maxRetryCount = 100;
         final long maxRetryWaitTimeMs = 20000;
         final long retryFactorTimeMs = 1000;
-        final long minTimeToResetRetryStateMs = 50;
+        final long minTimeToResetRetryStateMs = 100005;
         final ExponentialBackoffRetryStrategyConfig.JitterType jitterType = ExponentialBackoffRetryStrategyConfig.JitterType.NO_JITTER;
         final long jitterFactor = 100;
 
@@ -228,9 +247,17 @@ public class RetryStrategyTest extends ProducerTestBase {
 
     }
 
+    /**
+     * This test validates that the custom configuration is actually used by the native code.
+     * <p>
+     *     Note: The maxRetryCount currently tells PIC when to reset the internal retry count for the backoff
+     *     calculations. If the state machine has infinite retries configured for this state, the calculated
+     *     times will be in a wave pattern with a period of maxRetryCount.
+     * </p>
+     */
     @Test
     @SuppressWarnings({"ConstantConditions", "ExtractMethodRecommender"})
-    public void test_retryStrategyValuesActuallyGetUsed() throws ProducerException {
+    public void givenLowMaxRetryCount_whenStreamCreationFails_thenRetryExhaustionIsLogged() throws ProducerException {
 
         final long maxRetryCount = 1;
         final long maxRetryWaitTimeMs = 10000;
@@ -250,19 +277,37 @@ public class RetryStrategyTest extends ProducerTestBase {
 
         createProducer(deviceInfo);
 
-        final String invalidStreamName = ",/?";
-//        final String invalidStreamName = "adsf";
         final String methodName = new Object() {
         }.getClass().getEnclosingMethod().getName();
-        streamExpectCreateFailure(methodName + "-" + invalidStreamName);
-//        streamNormally(methodName + "-" + invalidStreamName);
+        final String streamName = "DeviceInfoClientInfoVersionTest-" + methodName + "-" + System.currentTimeMillis();
+        streamExpectCreateFailure(streamName);
 
         free();
 
+        // Since we're using max retries = 1, we should see this message. The describeStream state has a retryCount of 5.
+        final List<String> errorMessages = this.logCapture.getLogMessagesAtLevel(Level.ERROR);
+        final boolean containsMaxRetriesMessage = errorMessages.stream()
+                .anyMatch(message -> message.toLowerCase().contains(String.format("0x%08x", STATUS_EXPONENTIAL_BACKOFF_RETRIES_EXHAUSTED)));
+        assertTrue("Did not find max retries in the logs", containsMaxRetriesMessage);
+
+        final boolean containsDescribeFailure = errorMessages.stream()
+                .anyMatch(message -> message.toLowerCase().contains(String.format("0x%08x", STATUS_DESCRIBE_STREAM_CALL_FAILED)));
+        assertTrue("Did not receive a describe stream failure in the logs", containsDescribeFailure);
     }
 
+    /**
+     * Performs stream creation, putFrame, error verification, and resource cleanup.
+     *
+     * @param methodName Name of the caller method. A procedurally-generated stream name that includes the method name
+     *                   will be used.
+     */
     private void streamNormally(final String methodName) {
-        testStreaming(methodName, false);
+        try {
+            testStreaming(methodName, false);
+        } catch (final ProducerException e) {
+            log.error("Encountered an error while streaming!", e);
+            fail(e.getMessage());
+        }
 
         // frameDropped_ is set to false initially. It can be set to true by droppedFrameReport callback in case there
         // was a frame that was dropped during the test
@@ -276,21 +321,22 @@ public class RetryStrategyTest extends ProducerTestBase {
     }
 
     private void streamExpectCreateFailure(final String methodName) {
-        testStreaming(methodName, true);
+        try {
+            testStreaming(methodName, true);
+            fail(methodName + " should have thrown an exception");
+        } catch (final ProducerException e) {
+            assertEquals("Creating the stream should have timed out!",
+                    STATUS_OPERATION_TIMED_OUT, e.getStatusCode());
+        }
 
-        // frameDropped_ is set to false initially. It can be set to true by droppedFrameReport callback in case there
-        // was a frame that was dropped during the test
-        assertFalse(this.frameDropped_);
+        // Since we're not streaming anything, we're not expecting any error codes
         // errorStatus_ is set to STATUS_SUCCESS initially. It can be set to a different statusCode by
         // streamErrorReport callback in case an error is encountered during the test
-        assertEquals(0x4000002B, this.errorStatus_);
-        // bufferingAckInSequence_ is true initially. It can be set to false by fragmentAckReceived callback in case the
-        // (current timestamp - previous timestamp of the ack) > fragment duration
-        assertTrue(this.bufferingAckInSequence_);
+        assertEquals(STATUS_SUCCESS, this.errorStatus_);
     }
 
     @SuppressWarnings({"UnnecessaryLocalVariable"})
-    private void testStreaming(final String methodName, final boolean skipPreparation) {
+    private void testStreaming(final String methodName, final boolean skipPreparation) throws ProducerException {
         final String streamName = "DeviceInfoClientInfoVersionTest-" + methodName + "-" + System.currentTimeMillis();
         final StreamInfo.StreamingType streamingType = StreamInfo.StreamingType.STREAMING_TYPE_REALTIME;
         final long maxLatency = TEN_SECONDS_HUNDREDS_OF_NANOS;
@@ -319,14 +365,14 @@ public class RetryStrategyTest extends ProducerTestBase {
 
                 Thread.sleep(frameDurationMs);
             } catch (final Exception e) {
-                e.printStackTrace();
+                log.error("Encountered an error while streaming!", e);
                 fail("Failed to put the frames into the stream! " + e.getMessage());
             }
         }
         try {
             Thread.sleep(WAIT_5_SECONDS_FOR_ACKS);
         } catch (final InterruptedException e) {
-            e.printStackTrace();
+            log.error("Interrupted while waiting for the acks!", e);
             fail();
         }
 

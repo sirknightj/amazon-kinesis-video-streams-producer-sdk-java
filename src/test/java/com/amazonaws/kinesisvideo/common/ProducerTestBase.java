@@ -195,12 +195,12 @@ public class ProducerTestBase {
      * @return KinesisVideoProducerStream the created stream
      */
     protected KinesisVideoProducerStream createTestStream(String streamName, StreamInfo.StreamingType streamingType,
-                                                          long maxLatency, long bufferDuration) {
+                                                          long maxLatency, long bufferDuration) throws ProducerException {
         return createTestStream(streamName, streamingType, maxLatency, bufferDuration, NAL_ADAPTATION_FLAG_NONE, false);
     }
 
     protected KinesisVideoProducerStream createTestStream(String streamName, StreamInfo.StreamingType streamingType,
-                                                          long maxLatency, long bufferDuration, StreamInfo.NalAdaptationFlags nalAdaptationFlags, boolean skipPreparation) {
+                                                          long maxLatency, long bufferDuration, StreamInfo.NalAdaptationFlags nalAdaptationFlags, boolean skipPreparation) throws ProducerException {
         KinesisVideoProducerStream kinesisVideoProducerStream = null;
         
         final byte[] codecPrivateData = ProducerTestCPDs.getTestCPD(nalAdaptationFlags);
@@ -244,14 +244,7 @@ public class ProducerTestBase {
                 allowStreamCreation
         );
 
-        try {
-            kinesisVideoProducerStream = kinesisVideoProducer.createStreamSync(streamInfo, streamCallbacks);
-
-        } catch (final Exception e) {
-            log.error("Failed to create the stream: {}", finalStreamName, e);
-            fail();
-        }
-        return kinesisVideoProducerStream;
+        return kinesisVideoProducer.createStreamSync(streamInfo, streamCallbacks);
     }
 
     /**

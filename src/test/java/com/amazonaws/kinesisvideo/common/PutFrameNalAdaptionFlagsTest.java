@@ -59,7 +59,7 @@ public class PutFrameNalAdaptionFlagsTest extends ProducerTestBase {
      * <p>See KinesisVideoClientWrapper.cpp in the JNI.</p>
      */
     @Test
-    public void when_putFrameWithNullByteBufferData_then_exceptionIsThrown() {
+    public void when_putFrameWithNullByteBufferData_then_exceptionIsThrown() throws ProducerException {
         final KinesisVideoProducerStream kinesisVideoProducerStream;
         final String testStreamName = "JavaProducerApiTestStream_when_putFrameWithNullByteBufferData_then_exceptionIsThrown";
 

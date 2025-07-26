@@ -235,7 +235,7 @@ public class DeviceInfoClientInfoVersionTest extends ProducerTestBase {
     }
 
     @SuppressWarnings({"UnnecessaryLocalVariable"})
-    private void testStreaming(final String methodName) {
+    private void testStreaming(final String methodName) throws ProducerException {
         final String streamName = "DeviceInfoClientInfoVersionTest-" + methodName + "-" + System.currentTimeMillis();
         final StreamInfo.StreamingType streamingType = StreamInfo.StreamingType.STREAMING_TYPE_REALTIME;
         final long maxLatency = TEN_SECONDS_HUNDREDS_OF_NANOS;
