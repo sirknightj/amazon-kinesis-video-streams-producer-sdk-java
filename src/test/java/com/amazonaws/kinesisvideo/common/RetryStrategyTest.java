@@ -279,7 +279,8 @@ public class RetryStrategyTest extends ProducerTestBase {
 
         final String methodName = new Object() {
         }.getClass().getEnclosingMethod().getName();
-        final String streamName = "DeviceInfoClientInfoVersionTest-" + methodName + "-" + System.currentTimeMillis();
+        final String badCharacter = ","; // Using this to throw a 400 due to invalid character
+        final String streamName = "DeviceInfoClientInfoVersionTest-" + methodName + "-" + System.currentTimeMillis() + "-" + badCharacter;
         streamExpectCreateFailure(streamName);
 
         free();
