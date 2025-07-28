@@ -1,5 +1,7 @@
 package com.amazonaws.kinesisvideo.common;
 
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -14,6 +16,8 @@ import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
 import com.amazonaws.kinesisvideo.auth.DefaultAuthCallbacks;
 import com.amazonaws.kinesisvideo.client.KinesisVideoClientConfiguration;
+import com.amazonaws.kinesisvideo.internal.producer.ServiceCallbacks;
+import com.amazonaws.kinesisvideo.internal.producer.client.KinesisVideoServiceClient;
 import com.amazonaws.kinesisvideo.internal.producer.jni.NativeKinesisVideoProducerJni;
 import com.amazonaws.kinesisvideo.java.auth.JavaCredentialsFactory;
 import com.amazonaws.kinesisvideo.producer.Tag;
@@ -128,6 +132,16 @@ public class ProducerTestBase {
         return keyFrameInterval_ * frameDuration_ / Time.HUNDREDS_OF_NANOS_IN_A_MILLISECOND;
     }
 
+    @FunctionalInterface
+    protected interface ServiceCallbacksConstructor {
+        DefaultServiceCallbacksImpl apply(
+                Logger log,
+                ScheduledExecutorService executor,
+                KinesisVideoClientConfiguration configuration,
+                KinesisVideoServiceClient kinesisVideoServiceClient
+        );
+    }
+
     /**
      * This method is used to create a KinesisVideoProducer which is used by the later methods
      */
@@ -136,13 +150,28 @@ public class ProducerTestBase {
                 DEVICE_NAME, storageInfo_, NUMBER_OF_STREAMS, null,
                 "JNI " + NativeKinesisVideoProducerJni.EXPECTED_LIBRARY_VERSION,
                 new ClientInfo());
-        createProducer(deviceInfo_);
+
+        try {
+            createProducer(deviceInfo_);
+        } catch (Exception e) {
+            log.error("Unable to create Kinesis Video Producer.", e);
+            fail("Unable to create Kinesis Video Producer.");
+        }
+    }
+
+    protected void createProducer(DeviceInfo deviceInfo) {
+        try {
+            createProducer(deviceInfo, DefaultServiceCallbacksImpl::new);
+        } catch (Exception e) {
+            log.error("Unable to create Kinesis Video Producer.", e);
+            fail("Unable to create Kinesis Video Producer.");
+        }
     }
 
     /**
      * This method is used to create a KinesisVideoProducer which is used by the later methods
      */
-    protected void createProducer(DeviceInfo deviceInfo) {
+    protected void createProducer(DeviceInfo deviceInfo, ServiceCallbacksConstructor serviceCallbacksConstructor) throws Exception {
 
         reset(); // reset all flags to initial values so that they can be modified by the stream and storage callbacks
 
@@ -165,7 +194,8 @@ public class ProducerTestBase {
         storageCallbacks = new TestStorageCallbacks(this);
         streamCallbacks = new TestStreamCallBacks(this);
 
-        DefaultServiceCallbacksImpl defaultServiceCallbacks = new DefaultServiceCallbacksImpl(log, executor,
+        // Use the custom service callbacks (used to inject return values for API calls)
+        ServiceCallbacks defaultServiceCallbacks = serviceCallbacksConstructor.apply(log, executor,
                 configuration, serviceClient);
         kinesisVideoClient = new NativeKinesisVideoClient(log,
                 authCallbacks,

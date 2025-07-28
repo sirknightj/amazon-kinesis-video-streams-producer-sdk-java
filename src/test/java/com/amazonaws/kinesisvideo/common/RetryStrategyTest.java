@@ -1,6 +1,8 @@
 package com.amazonaws.kinesisvideo.common;
 
 import com.amazonaws.kinesisvideo.internal.producer.KinesisVideoProducerStream;
+import com.amazonaws.kinesisvideo.internal.producer.jni.NativeKinesisVideoProducerJni;
+import com.amazonaws.kinesisvideo.internal.service.DefaultServiceCallbacksImpl;
 import com.amazonaws.kinesisvideo.producer.ClientInfo;
 import com.amazonaws.kinesisvideo.producer.DeviceInfo;
 import com.amazonaws.kinesisvideo.producer.ExponentialBackoffRetryStrategyConfig;
@@ -8,9 +10,11 @@ import com.amazonaws.kinesisvideo.producer.KinesisVideoFrame;
 import com.amazonaws.kinesisvideo.producer.KvsRetryStrategy;
 import com.amazonaws.kinesisvideo.producer.ProducerException;
 import com.amazonaws.kinesisvideo.producer.StorageInfo;
+import com.amazonaws.kinesisvideo.producer.StreamDescription;
 import com.amazonaws.kinesisvideo.producer.StreamInfo;
 import com.amazonaws.kinesisvideo.producer.Tag;
 import com.amazonaws.kinesisvideo.util.LogCaptureRule;
+import com.amazonaws.kinesisvideo.util.StreamInfoConstants;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.junit.After;
@@ -19,6 +23,8 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.Timeout;
 
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.nio.ByteBuffer;
 import java.util.List;
 
@@ -61,7 +67,7 @@ public class RetryStrategyTest extends ProducerTestBase {
     private StorageInfo storageInfo;
 
     @Before
-    public void setUp() {
+    public void setUp() throws Exception {
         final boolean jniLoaded = isJNILoaded();
         if (!jniLoaded) {
             fail("JNI library not found.");
@@ -71,6 +77,11 @@ public class RetryStrategyTest extends ProducerTestBase {
         final int spillRatioPercent = 90;
         final String rootDirectory = "/tmp";
 
+        this.deviceInfo_ = new DeviceInfo(DEVICE_VERSION,
+                DEVICE_NAME, this.storageInfo_, NUMBER_OF_STREAMS, null,
+                "JNI " + NativeKinesisVideoProducerJni.EXPECTED_LIBRARY_VERSION,
+                new ClientInfo());
+
         this.storageInfo = new StorageInfo(STORAGE_INFO_VERSION_ZERO,
                 StorageInfo.DeviceStorageType.DEVICE_STORAGE_TYPE_IN_MEM, storageSizeBytes,
                 spillRatioPercent, rootDirectory);
@@ -79,6 +90,30 @@ public class RetryStrategyTest extends ProducerTestBase {
     @After
     public void tearDown() {
         // LogCaptureRule handles cleanup automatically
+    }
+
+    protected void createDescribeStreamErroredProducer(final DeviceInfo deviceInfo) {
+        final ServiceCallbacksConstructor alwaysErroredDescribeStreamServiceCallbacks = (log, executor, configuration, kinesisVideoServiceClient) -> new DefaultServiceCallbacksImpl(log, executor, configuration, kinesisVideoServiceClient) {
+            @Override
+            @SuppressWarnings("ConstantConditions")
+            public void describeStream(@Nonnull final String streamName,
+                                       final long callAfter, final long timeout,
+                                       @Nullable final byte[] authData,
+                                       final int authType, final long streamHandle,
+                                       final KinesisVideoProducerStream stream) throws ProducerException {
+
+                final StreamDescription streamDescription = null;
+                this.log.info("{} - alwaysErroredDescribeStreamCallbacks returning {}", streamName, StreamInfoConstants.HTTP_BAD_REQUEST);
+                this.kinesisVideoProducer.describeStreamResult(stream, streamHandle, streamDescription, StreamInfoConstants.HTTP_BAD_REQUEST);
+            }
+        };
+
+        try {
+            createProducer(deviceInfo, alwaysErroredDescribeStreamServiceCallbacks);
+        } catch (final Exception e) {
+            log.error("Unable to create Kinesis Video Producer.", e);
+            fail(e.getMessage());
+        }
     }
 
 
@@ -250,9 +285,9 @@ public class RetryStrategyTest extends ProducerTestBase {
     /**
      * This test validates that the custom configuration is actually used by the native code.
      * <p>
-     *     Note: The maxRetryCount currently tells PIC when to reset the internal retry count for the backoff
-     *     calculations. If the state machine has infinite retries configured for this state, the calculated
-     *     times will be in a wave pattern with a period of maxRetryCount.
+     * Note: The maxRetryCount currently tells PIC when to reset the internal retry count for the backoff
+     * calculations. If the state machine has infinite retries configured for this state, the calculated
+     * times will be in a wave pattern with a period of maxRetryCount.
      * </p>
      */
     @Test
@@ -275,12 +310,11 @@ public class RetryStrategyTest extends ProducerTestBase {
         final ClientInfo clientInfo = createClientInfoV2WithRetryStrategy(kvsRetryStrategy);
         final DeviceInfo deviceInfo = createDeviceInfoV1(clientInfo);
 
-        createProducer(deviceInfo);
+        createDescribeStreamErroredProducer(deviceInfo);
 
         final String methodName = new Object() {
         }.getClass().getEnclosingMethod().getName();
-        final String badCharacter = ","; // Using this to throw a 400 due to invalid character
-        final String streamName = "DeviceInfoClientInfoVersionTest-" + methodName + "-" + System.currentTimeMillis() + "-" + badCharacter;
+        final String streamName = "DeviceInfoClientInfoVersionTest-" + methodName + "-" + System.currentTimeMillis();
         streamExpectCreateFailure(streamName);
 
         free();
