@@ -12,7 +12,6 @@ import com.amazonaws.kinesisvideo.internal.producer.KinesisVideoProducer;
 import com.amazonaws.kinesisvideo.internal.producer.KinesisVideoProducerStream;
 import com.amazonaws.kinesisvideo.internal.producer.client.KinesisVideoServiceClient;
 import com.amazonaws.kinesisvideo.internal.service.DefaultServiceCallbacksImpl;
-import com.amazonaws.kinesisvideo.java.auth.JavaCredentialsProviderImpl;
 import com.amazonaws.kinesisvideo.producer.ProducerException;
 import com.amazonaws.kinesisvideo.producer.StreamDescription;
 import com.amazonaws.kinesisvideo.producer.StreamStatus;
@@ -91,7 +90,7 @@ public class CachedInfoMultiAuthServiceCallbacksImpl extends DefaultServiceCallb
                              final long timeout,
                              @Nullable final byte[] authData,
                              final int authType,
-                             final long customData)
+                             final KinesisVideoProducerStream stream)
             throws ProducerException {
         throw new ProducerException(
                 "Stream need to be pre-existing if using CachedInfoMultiAuthServiceCallbacksImpl.", 0);
@@ -289,7 +288,7 @@ public class CachedInfoMultiAuthServiceCallbacksImpl extends DefaultServiceCallb
     public void addCredentialsProviderToCache(String streamName, AWSCredentialsProvider credentialsProvider) {
         Preconditions.checkArgument(!credentialsProviderMap.containsKey(streamName));
         final KinesisVideoCredentialsProvider kvsCredentialsProvider =
-                JavaCredentialsFactory.getKinesisVideoCredentialsProvider(credentialsProvider);
+                JavaCredentialsFactory.createKinesisVideoCredentialsProvider(credentialsProvider);
         credentialsProviderMap.put(streamName, kvsCredentialsProvider);
     }
 
