@@ -5,34 +5,33 @@
 #define MAX_LOG_MESSAGE_LENGTH 1024 * 10
 
 #include "com/amazonaws/kinesis/video/producer/jni/KinesisVideoClientWrapper.h"
-
-// initializing static members of the class
-JavaVM* KinesisVideoClientWrapper::mJvm = NULL;
-jobject KinesisVideoClientWrapper::mGlobalJniObjRef = NULL;
-jmethodID KinesisVideoClientWrapper::mLogPrintMethodId = NULL;
-
+#include "com/amazonaws/kinesis/video/producer/jni/ClientRegistry.h"
 
 KinesisVideoClientWrapper::KinesisVideoClientWrapper(JNIEnv* env,
-                                         jobject thiz,
-                                         jobject deviceInfo): mClientHandle(INVALID_CLIENT_HANDLE_VALUE)
+                                                     jobject thiz,
+                                                     jobject deviceInfo): mClientHandle(INVALID_CLIENT_HANDLE_VALUE)
 {
-    UINT32 retStatus;
+    STATUS retStatus;
+    ClientRegistry::getInstance().addClient(this);
 
     CHECK(env != NULL && thiz != NULL && deviceInfo != NULL);
 
     // Get and store the JVM so the callbacks can use it later
-    if (env->GetJavaVM(&mJvm) != 0) {
+    if (env->GetJavaVM(&mJVMContext.jvm) != 0) {
+        ClientRegistry::getInstance().removeClient(this);
         CHECK_EXT(FALSE, "Couldn't retrieve the JavaVM reference.");
     }
 
     // Set the callbacks
     if (!setCallbacks(env, thiz)) {
+        ClientRegistry::getInstance().removeClient(this);
         throwNativeException(env, EXCEPTION_NAME, "Failed to set the callbacks.", STATUS_INVALID_ARG);
         return;
     }
 
     // Extract the DeviceInfo structure
     if (!setDeviceInfo(env, deviceInfo, &mDeviceInfo)) {
+        ClientRegistry::getInstance().removeClient(this);
         throwNativeException(env, EXCEPTION_NAME, "Failed to set the DeviceInfo structure.", STATUS_INVALID_ARG);
         return;
     }
@@ -41,6 +40,7 @@ KinesisVideoClientWrapper::KinesisVideoClientWrapper(JNIEnv* env,
     retStatus = createKinesisVideoClient(&mDeviceInfo, &mClientCallbacks, &mClientHandle);
     releaseTags(mDeviceInfo.tags);
     if (STATUS_FAILED(retStatus)) {
+        ClientRegistry::getInstance().removeClient(this);
         throwNativeException(env, EXCEPTION_NAME, "Failed to create Kinesis Video client.", retStatus);
         return;
     }
@@ -57,11 +57,11 @@ KinesisVideoClientWrapper::~KinesisVideoClientWrapper()
     STATUS retStatus = STATUS_SUCCESS;
     JNIEnv *env;
 
-    if (mJvm == NULL) {
+    if (this->getJVM() == NULL) {
         return;
     }
 
-    mJvm->GetEnv((PVOID*) &env, JNI_VERSION_1_6);
+    this->getJVM()->GetEnv((PVOID*) &env, JNI_VERSION_1_6);
 
     if (IS_VALID_CLIENT_HANDLE(mClientHandle))
     {
@@ -74,11 +74,7 @@ KinesisVideoClientWrapper::~KinesisVideoClientWrapper()
         }
     }
 
-    // You cannot log anything after this!
-    if (env != NULL && mGlobalJniObjRef != NULL) {
-        env->DeleteGlobalRef(mGlobalJniObjRef);
-        mGlobalJniObjRef = NULL;
-    }
+    ClientRegistry::getInstance().removeClient(this);
 }
 
 void KinesisVideoClientWrapper::stopKinesisVideoStreams()
@@ -88,7 +84,7 @@ void KinesisVideoClientWrapper::stopKinesisVideoStreams()
     {
         DLOGE("Invalid client object");
         JNIEnv *env;
-        mJvm->GetEnv((PVOID*) &env, JNI_VERSION_1_6);
+        this->getJVM()->GetEnv((PVOID*) &env, JNI_VERSION_1_6);
         throwNativeException(env, EXCEPTION_NAME, "Invalid call after the client is freed.", STATUS_INVALID_OPERATION);
         return;
     }
@@ -97,7 +93,7 @@ void KinesisVideoClientWrapper::stopKinesisVideoStreams()
     {
         DLOGE("Failed to stop the streams with status code 0x%08x", retStatus);
         JNIEnv *env;
-        mJvm->GetEnv((PVOID*) &env, JNI_VERSION_1_6);
+        this->getJVM()->GetEnv((PVOID*) &env, JNI_VERSION_1_6);
         throwNativeException(env, EXCEPTION_NAME, "Failed to stop the streams.", retStatus);
         return;
     }
@@ -107,7 +103,7 @@ void KinesisVideoClientWrapper::stopKinesisVideoStream(jlong streamHandle)
 {
     STATUS retStatus = STATUS_SUCCESS;
     JNIEnv *env;
-    mJvm->GetEnv((PVOID*) &env, JNI_VERSION_1_6);
+    this->getJVM()->GetEnv((PVOID*) &env, JNI_VERSION_1_6);
 
     if (!IS_VALID_CLIENT_HANDLE(mClientHandle))
     {
@@ -136,7 +132,7 @@ void KinesisVideoClientWrapper::freeKinesisVideoStream(jlong streamHandle)
     STATUS retStatus = STATUS_SUCCESS;
     STREAM_HANDLE handle = (STREAM_HANDLE) streamHandle;
     JNIEnv *env;
-    mJvm->GetEnv((PVOID*) &env, JNI_VERSION_1_6);
+    this->getJVM()->GetEnv((PVOID*) &env, JNI_VERSION_1_6);
 
     if (!IS_VALID_CLIENT_HANDLE(mClientHandle))
     {
@@ -164,7 +160,7 @@ void KinesisVideoClientWrapper::getKinesisVideoMetrics(jobject kinesisVideoMetri
 {
     STATUS retStatus = STATUS_SUCCESS;
     JNIEnv *env;
-    mJvm->GetEnv((PVOID*) &env, JNI_VERSION_1_6);
+    this->getJVM()->GetEnv((PVOID*) &env, JNI_VERSION_1_6);
 
     if (!IS_VALID_CLIENT_HANDLE(mClientHandle))
     {
@@ -222,7 +218,7 @@ void KinesisVideoClientWrapper::getKinesisVideoStreamMetrics(jlong streamHandle,
 {
     STATUS retStatus = STATUS_SUCCESS;
     JNIEnv *env;
-    mJvm->GetEnv((PVOID*) &env, JNI_VERSION_1_6);
+    this->getJVM()->GetEnv((PVOID*) &env, JNI_VERSION_1_6);
 
     if (!IS_VALID_CLIENT_HANDLE(mClientHandle))
     {
@@ -290,7 +286,7 @@ STREAM_HANDLE KinesisVideoClientWrapper::createKinesisVideoStream(jobject stream
     UINT32 i;
     JNIEnv *env;
     StreamInfo kinesisVideoStreamInfo;
-    mJvm->GetEnv((PVOID*) &env, JNI_VERSION_1_6);
+    this->getJVM()->GetEnv((PVOID*) &env, JNI_VERSION_1_6);
 
     if (!IS_VALID_CLIENT_HANDLE(mClientHandle))
     {
@@ -351,7 +347,7 @@ void KinesisVideoClientWrapper::putKinesisVideoFrame(jlong streamHandle, jobject
 {
     STATUS retStatus = STATUS_SUCCESS;
     JNIEnv *env;
-    mJvm->GetEnv((PVOID*) &env, JNI_VERSION_1_6);
+    this->getJVM()->GetEnv((PVOID*) &env, JNI_VERSION_1_6);
 
     if (!IS_VALID_CLIENT_HANDLE(mClientHandle))
     {
@@ -417,7 +413,7 @@ void KinesisVideoClientWrapper::putKinesisVideoFragmentMetadata(jlong streamHand
 {
     STATUS retStatus = STATUS_SUCCESS;
     JNIEnv *env;
-    mJvm->GetEnv((PVOID*) &env, JNI_VERSION_1_6);
+    this->getJVM()->GetEnv((PVOID*) &env, JNI_VERSION_1_6);
 
     if (!IS_VALID_CLIENT_HANDLE(mClientHandle))
     {
@@ -445,9 +441,8 @@ void KinesisVideoClientWrapper::putKinesisVideoFragmentMetadata(jlong streamHand
     PCHAR pMetadataValueStr = (PCHAR) env->GetStringUTFChars(metadataValue, NULL);
 
 
-    // Call the API
+    // Call the PIC API
     retStatus = ::putKinesisVideoFragmentMetadata(streamHandle, pMetadataNameStr, pMetadataValueStr, persistent == JNI_TRUE);
-
 
     // Release the string
     env->ReleaseStringUTFChars(metadataName, pMetadataNameStr);
@@ -466,7 +461,7 @@ void KinesisVideoClientWrapper::getKinesisVideoStreamData(jlong streamHandle, jl
 {
     STATUS retStatus = STATUS_SUCCESS;
     JNIEnv *env;
-    mJvm->GetEnv((PVOID*) &env, JNI_VERSION_1_6);
+    mJVMContext.jvm->GetEnv((PVOID*) &env, JNI_VERSION_1_6);
     UINT32 filledSize = 0, bufferSize = 0;
     PBYTE pBuffer = NULL;
     jboolean isEos = JNI_FALSE;
@@ -561,7 +556,7 @@ void KinesisVideoClientWrapper::kinesisVideoStreamFragmentAck(jlong streamHandle
 {
     STATUS retStatus = STATUS_SUCCESS;
     JNIEnv *env;
-    mJvm->GetEnv((PVOID*) &env, JNI_VERSION_1_6);
+    this->getJVM()->GetEnv((PVOID*) &env, JNI_VERSION_1_6);
     FragmentAck ack;
 
     if (!IS_VALID_CLIENT_HANDLE(mClientHandle))
@@ -605,7 +600,7 @@ void KinesisVideoClientWrapper::kinesisVideoStreamParseFragmentAck(jlong streamH
 {
     STATUS retStatus = STATUS_SUCCESS;
     JNIEnv *env;
-    mJvm->GetEnv((PVOID*) &env, JNI_VERSION_1_6);
+    this->getJVM()->GetEnv((PVOID*) &env, JNI_VERSION_1_6);
 
     if (!IS_VALID_CLIENT_HANDLE(mClientHandle))
     {
@@ -649,7 +644,7 @@ void KinesisVideoClientWrapper::streamFormatChanged(jlong streamHandle, jobject 
 {
     STATUS retStatus = STATUS_SUCCESS;
     JNIEnv *env;
-    mJvm->GetEnv((PVOID*) &env, JNI_VERSION_1_6);
+    this->getJVM()->GetEnv((PVOID*) &env, JNI_VERSION_1_6);
     UINT32 bufferSize = 0;
     PBYTE pBuffer = NULL;
     BOOL releaseBuffer = FALSE;
@@ -704,7 +699,7 @@ void KinesisVideoClientWrapper::describeStreamResult(jlong streamHandle, jint ht
 {
     STATUS retStatus = STATUS_SUCCESS;
     JNIEnv *env;
-    mJvm->GetEnv((PVOID*) &env, JNI_VERSION_1_6);
+    this->getJVM()->GetEnv((PVOID*) &env, JNI_VERSION_1_6);
 
     if (!IS_VALID_CLIENT_HANDLE(mClientHandle))
     {
@@ -739,7 +734,7 @@ void KinesisVideoClientWrapper::kinesisVideoStreamTerminated(jlong streamHandle,
 {
     STATUS retStatus = STATUS_SUCCESS;
     JNIEnv *env;
-    mJvm->GetEnv((PVOID*) &env, JNI_VERSION_1_6);
+    this->getJVM()->GetEnv((PVOID*) &env, JNI_VERSION_1_6);
 
     if (!IS_VALID_CLIENT_HANDLE(mClientHandle))
     {
@@ -761,7 +756,7 @@ void KinesisVideoClientWrapper::createStreamResult(jlong streamHandle, jint http
     STATUS retStatus = STATUS_SUCCESS;
     JNIEnv *env;
     PCHAR pStreamArn = NULL;
-    mJvm->GetEnv((PVOID*) &env, JNI_VERSION_1_6);
+    this->getJVM()->GetEnv((PVOID*) &env, JNI_VERSION_1_6);
 
     if (!IS_VALID_CLIENT_HANDLE(mClientHandle))
     {
@@ -793,7 +788,7 @@ void KinesisVideoClientWrapper::putStreamResult(jlong streamHandle, jint httpSta
 {
     STATUS retStatus = STATUS_SUCCESS;
     JNIEnv *env;
-    mJvm->GetEnv((PVOID*) &env, JNI_VERSION_1_6);
+    this->getJVM()->GetEnv((PVOID*) &env, JNI_VERSION_1_6);
 
     if (!IS_VALID_CLIENT_HANDLE(mClientHandle))
     {
@@ -814,7 +809,7 @@ void KinesisVideoClientWrapper::tagResourceResult(jlong customData, jint httpSta
 {
     STATUS retStatus = STATUS_SUCCESS;
     JNIEnv *env;
-    mJvm->GetEnv((PVOID*) &env, JNI_VERSION_1_6);
+    this->getJVM()->GetEnv((PVOID*) &env, JNI_VERSION_1_6);
 
     if (!IS_VALID_CLIENT_HANDLE(mClientHandle))
     {
@@ -835,7 +830,7 @@ void KinesisVideoClientWrapper::getStreamingEndpointResult(jlong streamHandle, j
 {
     STATUS retStatus = STATUS_SUCCESS;
     JNIEnv *env;
-    mJvm->GetEnv((PVOID*) &env, JNI_VERSION_1_6);
+    this->getJVM()->GetEnv((PVOID*) &env, JNI_VERSION_1_6);
 
     if (!IS_VALID_CLIENT_HANDLE(mClientHandle))
     {
@@ -864,7 +859,7 @@ void KinesisVideoClientWrapper::getStreamingTokenResult(jlong streamHandle, jint
 {
     STATUS retStatus = STATUS_SUCCESS;
     JNIEnv *env;
-    mJvm->GetEnv((PVOID*) &env, JNI_VERSION_1_6);
+    this->getJVM()->GetEnv((PVOID*) &env, JNI_VERSION_1_6);
 
     if (!IS_VALID_CLIENT_HANDLE(mClientHandle))
     {
@@ -899,7 +894,7 @@ void KinesisVideoClientWrapper::createDeviceResult(jlong clientHandle, jint http
     STATUS retStatus = STATUS_SUCCESS;
     JNIEnv *env;
     PCHAR pDeviceArn = NULL;
-    mJvm->GetEnv((PVOID*) &env, JNI_VERSION_1_6);
+    this->getJVM()->GetEnv((PVOID*) &env, JNI_VERSION_1_6);
 
     if (!IS_VALID_CLIENT_HANDLE(mClientHandle))
     {
@@ -931,7 +926,7 @@ void KinesisVideoClientWrapper::deviceCertToTokenResult(jlong clientHandle, jint
 {
     STATUS retStatus = STATUS_SUCCESS;
     JNIEnv *env;
-    mJvm->GetEnv((PVOID*) &env, JNI_VERSION_1_6);
+    this->getJVM()->GetEnv((PVOID*) &env, JNI_VERSION_1_6);
 
     if (!IS_VALID_CLIENT_HANDLE(mClientHandle))
     {
@@ -1015,7 +1010,7 @@ BOOL KinesisVideoClientWrapper::setCallbacks(JNIEnv* env, jobject thiz)
     mClientCallbacks.clientShutdownFn = NULL;
     mClientCallbacks.streamShutdownFn = NULL;
 
-    // Extract the method IDs for the callbacks and set a global reference
+    // Extract the method IDs for the callbacks and set a reference
     jclass thizCls = env->GetObjectClass(thiz);
     if (thizCls == NULL) {
         DLOGE("Failed to get the object class for the JNI object.");
@@ -1023,8 +1018,8 @@ BOOL KinesisVideoClientWrapper::setCallbacks(JNIEnv* env, jobject thiz)
     }
 
     // Setup the environment and the callbacks
-    if (NULL == (mGlobalJniObjRef = env->NewGlobalRef(thiz))) {
-        DLOGE("Failed to create a global reference for the JNI object.");
+    if (NULL == (mJVMContext.javaObjectRef = env->NewGlobalRef(thiz))) {
+        DLOGE("Failed to create a reference for the JNI object.");
         return FALSE;
     }
 
@@ -1173,8 +1168,8 @@ BOOL KinesisVideoClientWrapper::setCallbacks(JNIEnv* env, jobject thiz)
         return FALSE;
     }
 
-    mLogPrintMethodId = env->GetMethodID(thizCls, "logPrint", "(ILjava/lang/String;Ljava/lang/String;Ljava/lang/String;)V");
-    if (mLogPrintMethodId == NULL) {
+    mJVMContext.logPrintMethodId = env->GetMethodID(thizCls, "logPrint", "(ILjava/lang/String;Ljava/lang/String;Ljava/lang/String;)V");
+    if (mJVMContext.logPrintMethodId == NULL) {
         DLOGE("Couldn't find method id logPrint");
         return FALSE;
     }
@@ -1314,24 +1309,18 @@ STATUS KinesisVideoClientWrapper::getDeviceFingerprintFunc(UINT64 customData, PC
     KinesisVideoClientWrapper *pWrapper = FROM_WRAPPER_HANDLE(customData);
     CHECK(pWrapper != NULL && ppFingerprint != NULL);
 
-    // Get the ENV from the JavaVM
+    // Get env from the client context
     JNIEnv *env;
-    BOOL detached = FALSE;
     STATUS retStatus = STATUS_SUCCESS;
     jstring jstr = NULL;
     const jchar* bufferPtr = NULL;
     UINT32 strLen;
 
-    INT32 envState = pWrapper->mJvm->GetEnv((PVOID*) &env, JNI_VERSION_1_6);
-    if (envState == JNI_EDETACHED) {
-        ATTACH_CURRENT_THREAD_TO_JVM(env);
-
-        // Store the detached so we can detach the thread after the call
-        detached = TRUE;
-    }
+    CHECK_JNI_THREAD_ATTACH(pWrapper->getJVM());
 
     // Call the Java func
-    jstr = (jstring) env->CallObjectMethod(pWrapper->mGlobalJniObjRef, pWrapper->mGetDeviceFingerprintMethodId);
+    jstr = (jstring) env->CallObjectMethod(pWrapper->mJVMContext.javaObjectRef,
+                                           pWrapper->mGetDeviceFingerprintMethodId);
     CHK_JVM_EXCEPTION(env);
 
     if (jstr != NULL) {
@@ -1364,10 +1353,7 @@ CleanUp:
         env->ReleaseStringChars(jstr, bufferPtr);
     }
 
-    // Detach the thread if we have attached it to JVM
-    if (detached) {
-        pWrapper->mJvm->DetachCurrentThread();
-    }
+    CLEANUP_JNI_THREAD_DETACH(pWrapper->getJVM());
 
     return retStatus;
 }
@@ -1379,29 +1365,18 @@ STATUS KinesisVideoClientWrapper::streamUnderflowReportFunc(UINT64 customData, S
     KinesisVideoClientWrapper *pWrapper = FROM_WRAPPER_HANDLE(customData);
     CHECK(pWrapper != NULL);
 
-    // Get the ENV from the JavaVM
-    JNIEnv *env;
-    BOOL detached = FALSE;
     STATUS retStatus = STATUS_SUCCESS;
+    JNIEnv *env;
 
-    INT32 envState = pWrapper->mJvm->GetEnv((PVOID*) &env, JNI_VERSION_1_6);
-    if (envState == JNI_EDETACHED) {
-        ATTACH_CURRENT_THREAD_TO_JVM(env);
-
-        // Store the detached so we can detach the thread after the call
-        detached = TRUE;
-    }
+    CHECK_JNI_THREAD_ATTACH(pWrapper->getJVM());
 
     // Call the Java func
-    env->CallVoidMethod(pWrapper->mGlobalJniObjRef, pWrapper->mStreamUnderflowReportMethodId, streamHandle);
+    env->CallVoidMethod(pWrapper->getJavaObjectRef(), pWrapper->mStreamUnderflowReportMethodId, streamHandle);
     CHK_JVM_EXCEPTION(env);
 
 CleanUp:
 
-    // Detach the thread if we have attached it to JVM
-    if (detached) {
-        pWrapper->mJvm->DetachCurrentThread();
-    }
+    CLEANUP_JNI_THREAD_DETACH(pWrapper->getJVM());
 
     return retStatus;
 }
@@ -1413,29 +1388,18 @@ STATUS KinesisVideoClientWrapper::storageOverflowPressureFunc(UINT64 customData,
     KinesisVideoClientWrapper *pWrapper = FROM_WRAPPER_HANDLE(customData);
     CHECK(pWrapper != NULL);
 
-    // Get the ENV from the JavaVM
-    JNIEnv *env;
-    BOOL detached = FALSE;
     STATUS retStatus = STATUS_SUCCESS;
+    JNIEnv *env;
 
-    INT32 envState = pWrapper->mJvm->GetEnv((PVOID*) &env, JNI_VERSION_1_6);
-    if (envState == JNI_EDETACHED) {
-        ATTACH_CURRENT_THREAD_TO_JVM(env);
-
-        // Store the detached so we can detach the thread after the call
-        detached = TRUE;
-    }
+    CHECK_JNI_THREAD_ATTACH(pWrapper->getJVM());
 
     // Call the Java func
-    env->CallVoidMethod(pWrapper->mGlobalJniObjRef, pWrapper->mStorageOverflowPressureMethodId, remainingSize);
+    env->CallVoidMethod(pWrapper->getJavaObjectRef(), pWrapper->mStorageOverflowPressureMethodId, remainingSize);
     CHK_JVM_EXCEPTION(env);
 
 CleanUp:
 
-    // Detach the thread if we have attached it to JVM
-    if (detached) {
-        pWrapper->mJvm->DetachCurrentThread();
-    }
+    CLEANUP_JNI_THREAD_DETACH(pWrapper->getJVM());
 
     return retStatus;
 }
@@ -1447,29 +1411,18 @@ STATUS KinesisVideoClientWrapper::streamLatencyPressureFunc(UINT64 customData, S
     KinesisVideoClientWrapper *pWrapper = FROM_WRAPPER_HANDLE(customData);
     CHECK(pWrapper != NULL);
 
-    // Get the ENV from the JavaVM
-    JNIEnv *env;
-    BOOL detached = FALSE;
     STATUS retStatus = STATUS_SUCCESS;
+    JNIEnv *env;
 
-    INT32 envState = pWrapper->mJvm->GetEnv((PVOID*) &env, JNI_VERSION_1_6);
-    if (envState == JNI_EDETACHED) {
-        ATTACH_CURRENT_THREAD_TO_JVM(env);
-
-        // Store the detached so we can detach the thread after the call
-        detached = TRUE;
-    }
+    CHECK_JNI_THREAD_ATTACH(pWrapper->getJVM());
 
     // Call the Java func
-    env->CallVoidMethod(pWrapper->mGlobalJniObjRef, pWrapper->mStreamLatencyPressureMethodId, streamHandle, duration);
+    env->CallVoidMethod(pWrapper->getJavaObjectRef(), pWrapper->mStreamLatencyPressureMethodId, streamHandle, duration);
     CHK_JVM_EXCEPTION(env);
 
 CleanUp:
 
-    // Detach the thread if we have attached it to JVM
-    if (detached) {
-        pWrapper->mJvm->DetachCurrentThread();
-    }
+    CLEANUP_JNI_THREAD_DETACH(pWrapper->getJVM());
 
     return retStatus;
 }
@@ -1481,29 +1434,18 @@ STATUS KinesisVideoClientWrapper::streamConnectionStaleFunc(UINT64 customData, S
     KinesisVideoClientWrapper *pWrapper = FROM_WRAPPER_HANDLE(customData);
     CHECK(pWrapper != NULL);
 
-    // Get the ENV from the JavaVM
-    JNIEnv *env;
-    BOOL detached = FALSE;
     STATUS retStatus = STATUS_SUCCESS;
+    JNIEnv *env;
 
-    INT32 envState = pWrapper->mJvm->GetEnv((PVOID*) &env, JNI_VERSION_1_6);
-    if (envState == JNI_EDETACHED) {
-        ATTACH_CURRENT_THREAD_TO_JVM(env);
-
-        // Store the detached so we can detach the thread after the call
-        detached = TRUE;
-    }
+    CHECK_JNI_THREAD_ATTACH(pWrapper->getJVM());
 
     // Call the Java func
-    env->CallVoidMethod(pWrapper->mGlobalJniObjRef, pWrapper->mStreamConnectionStaleMethodId, streamHandle, duration);
+    env->CallVoidMethod(pWrapper->getJavaObjectRef(), pWrapper->mStreamConnectionStaleMethodId, streamHandle, duration);
     CHK_JVM_EXCEPTION(env);
 
 CleanUp:
 
-    // Detach the thread if we have attached it to JVM
-    if (detached) {
-        pWrapper->mJvm->DetachCurrentThread();
-    }
+    CLEANUP_JNI_THREAD_DETACH(pWrapper->getJVM());
 
     return retStatus;
 }
@@ -1516,22 +1458,14 @@ STATUS KinesisVideoClientWrapper::fragmentAckReceivedFunc(UINT64 customData, STR
     KinesisVideoClientWrapper *pWrapper = FROM_WRAPPER_HANDLE(customData);
     CHECK(pWrapper != NULL);
 
-    // Get the ENV from the JavaVM
-    JNIEnv *env;
-    BOOL detached = FALSE;
     STATUS retStatus = STATUS_SUCCESS;
+    JNIEnv *env;
     jstring jstrSequenceNum = NULL;
     jobject ack = NULL;
     jmethodID methodId = NULL;
     jclass ackClass = NULL;
 
-    INT32 envState = pWrapper->mJvm->GetEnv((PVOID*) &env, JNI_VERSION_1_6);
-    if (envState == JNI_EDETACHED) {
-        ATTACH_CURRENT_THREAD_TO_JVM(env);
-
-        // Store the detached so we can detach the thread after the call
-        detached = TRUE;
-    }
+    CHECK_JNI_THREAD_ATTACH(pWrapper->getJVM());
 
     // Get the class object for Ack
     ackClass = env->FindClass("com/amazonaws/kinesisvideo/producer/KinesisVideoFragmentAck");
@@ -1554,15 +1488,12 @@ STATUS KinesisVideoClientWrapper::fragmentAckReceivedFunc(UINT64 customData, STR
     CHK(ack != NULL, STATUS_NOT_ENOUGH_MEMORY);
 
     // Call the Java func
-    env->CallVoidMethod(pWrapper->mGlobalJniObjRef, pWrapper->mFragmentAckReceivedMethodId, streamHandle, upload_handle, ack);
+    env->CallVoidMethod(pWrapper->getJavaObjectRef(), pWrapper->mFragmentAckReceivedMethodId, streamHandle, upload_handle, ack);
     CHK_JVM_EXCEPTION(env);
 
 CleanUp:
 
-    // Detach the thread if we have attached it to JVM
-    if (detached) {
-        pWrapper->mJvm->DetachCurrentThread();
-    }
+    CLEANUP_JNI_THREAD_DETACH(pWrapper->getJVM());
 
     return retStatus;
 }
@@ -1574,29 +1505,18 @@ STATUS KinesisVideoClientWrapper::droppedFrameReportFunc(UINT64 customData, STRE
     KinesisVideoClientWrapper *pWrapper = FROM_WRAPPER_HANDLE(customData);
     CHECK(pWrapper != NULL);
 
-    // Get the ENV from the JavaVM
-    JNIEnv *env;
-    BOOL detached = FALSE;
     STATUS retStatus = STATUS_SUCCESS;
+    JNIEnv *env;
 
-    INT32 envState = pWrapper->mJvm->GetEnv((PVOID*) &env, JNI_VERSION_1_6);
-    if (envState == JNI_EDETACHED) {
-        ATTACH_CURRENT_THREAD_TO_JVM(env);
-
-        // Store the detached so we can detach the thread after the call
-        detached = TRUE;
-    }
+    CHECK_JNI_THREAD_ATTACH(pWrapper->getJVM());
 
     // Call the Java func
-    env->CallVoidMethod(pWrapper->mGlobalJniObjRef, pWrapper->mDroppedFrameReportMethodId, streamHandle, frameTimecode);
+    env->CallVoidMethod(pWrapper->getJavaObjectRef(), pWrapper->mDroppedFrameReportMethodId, streamHandle, frameTimecode);
     CHK_JVM_EXCEPTION(env);
 
 CleanUp:
 
-    // Detach the thread if we have attached it to JVM
-    if (detached) {
-        pWrapper->mJvm->DetachCurrentThread();
-    }
+    CLEANUP_JNI_THREAD_DETACH(pWrapper->getJVM());
 
     return retStatus;
 }
@@ -1607,29 +1527,18 @@ STATUS KinesisVideoClientWrapper::bufferDurationOverflowPressureFunc(UINT64 cust
     KinesisVideoClientWrapper *pWrapper = FROM_WRAPPER_HANDLE(customData);
     CHECK(pWrapper != NULL);
 
-    // Get the ENV from the JavaVM
-    JNIEnv *env;
-    BOOL detached = FALSE;
     STATUS retStatus = STATUS_SUCCESS;
+    JNIEnv *env;
 
-    INT32 envState = pWrapper->mJvm->GetEnv((PVOID*) &env, JNI_VERSION_1_6);
-    if (envState == JNI_EDETACHED) {
-        ATTACH_CURRENT_THREAD_TO_JVM(env);
-
-        // Store the detached so we can detach the thread after the call
-        detached = TRUE;
-    }
+    CHECK_JNI_THREAD_ATTACH(pWrapper->getJVM());
 
     // Call the Java func
-    env->CallVoidMethod(pWrapper->mGlobalJniObjRef, pWrapper->mBufferDurationOverflowPressureMethodId, streamHandle, remainingDuration);
+    env->CallVoidMethod(pWrapper->getJavaObjectRef(), pWrapper->mBufferDurationOverflowPressureMethodId, streamHandle, remainingDuration);
     CHK_JVM_EXCEPTION(env);
 
 CleanUp:
 
-    // Detach the thread if we have attached it to JVM
-    if (detached) {
-        pWrapper->mJvm->DetachCurrentThread();
-    }
+    CLEANUP_JNI_THREAD_DETACH(pWrapper->getJVM());
 
     return retStatus;
 }
@@ -1641,29 +1550,18 @@ STATUS KinesisVideoClientWrapper::droppedFragmentReportFunc(UINT64 customData, S
     KinesisVideoClientWrapper *pWrapper = FROM_WRAPPER_HANDLE(customData);
     CHECK(pWrapper != NULL);
 
-    // Get the ENV from the JavaVM
-    JNIEnv *env;
-    BOOL detached = FALSE;
     STATUS retStatus = STATUS_SUCCESS;
+    JNIEnv *env;
 
-    INT32 envState = pWrapper->mJvm->GetEnv((PVOID*) &env, JNI_VERSION_1_6);
-    if (envState == JNI_EDETACHED) {
-        ATTACH_CURRENT_THREAD_TO_JVM(env);
-
-        // Store the detached so we can detach the thread after the call
-        detached = TRUE;
-    }
+    CHECK_JNI_THREAD_ATTACH(pWrapper->getJVM());
 
     // Call the Java func
-    env->CallVoidMethod(pWrapper->mGlobalJniObjRef, pWrapper->mDroppedFragmentReportMethodId, streamHandle, fragmentTimecode);
+    env->CallVoidMethod(pWrapper->getJavaObjectRef(), pWrapper->mDroppedFragmentReportMethodId, streamHandle, fragmentTimecode);
     CHK_JVM_EXCEPTION(env);
 
 CleanUp:
 
-    // Detach the thread if we have attached it to JVM
-    if (detached) {
-        pWrapper->mJvm->DetachCurrentThread();
-    }
+    CLEANUP_JNI_THREAD_DETACH(pWrapper->getJVM());
 
     return retStatus;
 }
@@ -1676,31 +1574,20 @@ STATUS KinesisVideoClientWrapper::streamErrorReportFunc(UINT64 customData, STREA
     KinesisVideoClientWrapper *pWrapper = FROM_WRAPPER_HANDLE(customData);
     CHECK(pWrapper != NULL);
 
-    // Get the ENV from the JavaVM
-    JNIEnv *env;
-    BOOL detached = FALSE;
     STATUS retStatus = STATUS_SUCCESS;
+    JNIEnv *env;
     jlong status = (UINT64) statusCode;
 
-    INT32 envState = pWrapper->mJvm->GetEnv((PVOID*) &env, JNI_VERSION_1_6);
-    if (envState == JNI_EDETACHED) {
-        ATTACH_CURRENT_THREAD_TO_JVM(env);
-
-        // Store the detached so we can detach the thread after the call
-        detached = TRUE;
-    }
+    CHECK_JNI_THREAD_ATTACH(pWrapper->getJVM());
 
     // Call the Java func
-    env->CallVoidMethod(pWrapper->mGlobalJniObjRef, pWrapper->mStreamErrorReportMethodId, streamHandle, upload_handle,
+    env->CallVoidMethod(pWrapper->getJavaObjectRef(), pWrapper->mStreamErrorReportMethodId, streamHandle, upload_handle,
                         fragmentTimecode, status);
     CHK_JVM_EXCEPTION(env);
 
 CleanUp:
 
-    // Detach the thread if we have attached it to JVM
-    if (detached) {
-        pWrapper->mJvm->DetachCurrentThread();
-    }
+    CLEANUP_JNI_THREAD_DETACH(pWrapper->getJVM());
 
     return retStatus;
 }
@@ -1712,29 +1599,18 @@ STATUS KinesisVideoClientWrapper::streamReadyFunc(UINT64 customData, STREAM_HAND
     KinesisVideoClientWrapper *pWrapper = FROM_WRAPPER_HANDLE(customData);
     CHECK(pWrapper != NULL);
 
-    // Get the ENV from the JavaVM
-    JNIEnv *env;
-    BOOL detached = FALSE;
     STATUS retStatus = STATUS_SUCCESS;
+    JNIEnv *env;
 
-    INT32 envState = pWrapper->mJvm->GetEnv((PVOID*) &env, JNI_VERSION_1_6);
-    if (envState == JNI_EDETACHED) {
-        ATTACH_CURRENT_THREAD_TO_JVM(env);
-
-        // Store the detached so we can detach the thread after the call
-        detached = TRUE;
-    }
+    CHECK_JNI_THREAD_ATTACH(pWrapper->getJVM());
 
     // Call the Java func
-    env->CallVoidMethod(pWrapper->mGlobalJniObjRef, pWrapper->mStreamReadyMethodId, streamHandle);
+    env->CallVoidMethod(pWrapper->getJavaObjectRef(), pWrapper->mStreamReadyMethodId, streamHandle);
     CHK_JVM_EXCEPTION(env);
 
 CleanUp:
 
-    // Detach the thread if we have attached it to JVM
-    if (detached) {
-        pWrapper->mJvm->DetachCurrentThread();
-    }
+    CLEANUP_JNI_THREAD_DETACH(pWrapper->getJVM());
 
     return retStatus;
 }
@@ -1746,29 +1622,18 @@ STATUS KinesisVideoClientWrapper::streamClosedFunc(UINT64 customData, STREAM_HAN
     KinesisVideoClientWrapper *pWrapper = FROM_WRAPPER_HANDLE(customData);
     CHECK(pWrapper != NULL);
 
-    // Get the ENV from the JavaVM
-    JNIEnv *env;
-    BOOL detached = FALSE;
     STATUS retStatus = STATUS_SUCCESS;
+    JNIEnv *env;
 
-    INT32 envState = pWrapper->mJvm->GetEnv((PVOID*) &env, JNI_VERSION_1_6);
-    if (envState == JNI_EDETACHED) {
-        ATTACH_CURRENT_THREAD_TO_JVM(env);
-
-        // Store the detached so we can detach the thread after the call
-        detached = TRUE;
-    }
+    CHECK_JNI_THREAD_ATTACH(pWrapper->getJVM());
 
     // Call the Java func
-    env->CallVoidMethod(pWrapper->mGlobalJniObjRef, pWrapper->mStreamClosedMethodId, streamHandle, uploadHandle);
+    env->CallVoidMethod(pWrapper->getJavaObjectRef(), pWrapper->mStreamClosedMethodId, streamHandle, uploadHandle);
     CHK_JVM_EXCEPTION(env);
 
 CleanUp:
 
-    // Detach the thread if we have attached it to JVM
-    if (detached) {
-        pWrapper->mJvm->DetachCurrentThread();
-    }
+    CLEANUP_JNI_THREAD_DETACH(pWrapper->getJVM());
 
     return retStatus;
 }
@@ -1781,27 +1646,17 @@ STATUS KinesisVideoClientWrapper::streamDataAvailableFunc(UINT64 customData, STR
     CHECK(pWrapper != NULL);
 
     // Get the ENV from the JavaVM
-    JNIEnv *env;
-    BOOL detached = FALSE;
     STATUS retStatus = STATUS_SUCCESS;
+    JNIEnv *env;
 
-    INT32 envState = pWrapper->mJvm->GetEnv((PVOID*) &env, JNI_VERSION_1_6);
-    if (envState == JNI_EDETACHED) {
-        ATTACH_CURRENT_THREAD_TO_JVM(env);
+    CHECK_JNI_THREAD_ATTACH(pWrapper->getJVM());
 
-        // Store the detached so we can detach the thread after the call
-        detached = TRUE;
-    }
-
-    env->CallVoidMethod(pWrapper->mGlobalJniObjRef, pWrapper->mStreamDataAvailableMethodId, streamHandle, NULL, uploadHandle, duration, availableSize);
+    env->CallVoidMethod(pWrapper->getJavaObjectRef(), pWrapper->mStreamDataAvailableMethodId, streamHandle, NULL, uploadHandle, duration, availableSize);
     CHK_JVM_EXCEPTION(env);
 
 CleanUp:
 
-    // Detach the thread if we have attached it to JVM
-    if (detached) {
-        pWrapper->mJvm->DetachCurrentThread();
-    }
+    CLEANUP_JNI_THREAD_DETACH(pWrapper->getJVM());
 
     return retStatus;
 }
@@ -1819,20 +1674,12 @@ STATUS KinesisVideoClientWrapper::createStreamFunc(UINT64 customData,
     KinesisVideoClientWrapper *pWrapper = FROM_WRAPPER_HANDLE(customData);
     CHECK(pWrapper != NULL);
 
-    // Get the ENV from the JavaVM
     JNIEnv *env;
-    BOOL detached = FALSE;
     STATUS retStatus = STATUS_SUCCESS;
     jstring jstrDeviceName = NULL, jstrStreamName = NULL, jstrContentType = NULL, jstrKmsKeyId = NULL;
     jbyteArray authByteArray = NULL;
 
-    INT32 envState = pWrapper->mJvm->GetEnv((PVOID*) &env, JNI_VERSION_1_6);
-    if (envState == JNI_EDETACHED) {
-        ATTACH_CURRENT_THREAD_TO_JVM(env);
-
-        // Store the detached so we can detach the thread after the call
-        detached = TRUE;
-    }
+    CHECK_JNI_THREAD_ATTACH(pWrapper->getJVM());
 
     // Call the Java func
     jstrDeviceName = env->NewStringUTF(deviceName);
@@ -1858,7 +1705,7 @@ STATUS KinesisVideoClientWrapper::createStreamFunc(UINT64 customData,
                             (const jbyte*) pCallbackContext->pAuthInfo->data);
 
     // Invoke the callback
-    retStatus = env->CallIntMethod(pWrapper->mGlobalJniObjRef,
+    retStatus = env->CallIntMethod(pWrapper->getJavaObjectRef(),
                                    pWrapper->mCreateStreamMethodId,
                                    jstrDeviceName,
                                    jstrStreamName,
@@ -1896,10 +1743,7 @@ CleanUp:
         env->DeleteLocalRef(authByteArray);
     }
 
-    // Detach the thread if we have attached it to JVM
-    if (detached) {
-        pWrapper->mJvm->DetachCurrentThread();
-    }
+    CLEANUP_JNI_THREAD_DETACH(pWrapper->getJVM());
 
     return retStatus;
 }
@@ -1913,20 +1757,12 @@ STATUS KinesisVideoClientWrapper::describeStreamFunc(UINT64 customData,
     KinesisVideoClientWrapper *pWrapper = FROM_WRAPPER_HANDLE(customData);
     CHECK(pWrapper != NULL);
 
-    // Get the ENV from the JavaVM
-    JNIEnv *env;
-    BOOL detached = FALSE;
     STATUS retStatus = STATUS_SUCCESS;
+    JNIEnv *env;
     jstring jstrStreamName = NULL;
     jbyteArray authByteArray = NULL;
 
-    INT32 envState = pWrapper->mJvm->GetEnv((PVOID*) &env, JNI_VERSION_1_6);
-    if (envState == JNI_EDETACHED) {
-        ATTACH_CURRENT_THREAD_TO_JVM(env);
-
-        // Store the detached so we can detach the thread after the call
-        detached = TRUE;
-    }
+    CHECK_JNI_THREAD_ATTACH(pWrapper->getJVM());
 
     // Call the Java func
     jstrStreamName = env->NewStringUTF(streamName);
@@ -1944,7 +1780,7 @@ STATUS KinesisVideoClientWrapper::describeStreamFunc(UINT64 customData,
                             (const jbyte*) pCallbackContext->pAuthInfo->data);
 
     // Invoke the callback
-    retStatus = env->CallIntMethod(pWrapper->mGlobalJniObjRef,
+    retStatus = env->CallIntMethod(pWrapper->getJavaObjectRef(),
                                    pWrapper->mDescribeStreamMethodId,
                                    jstrStreamName,
                                    pCallbackContext->callAfter,
@@ -1966,10 +1802,7 @@ CleanUp:
         env->DeleteLocalRef(authByteArray);
     }
 
-    // Detach the thread if we have attached it to JVM
-    if (detached) {
-        pWrapper->mJvm->DetachCurrentThread();
-    }
+    CLEANUP_JNI_THREAD_DETACH(pWrapper->getJVM());
 
     return retStatus;
 }
@@ -1984,21 +1817,13 @@ STATUS KinesisVideoClientWrapper::getStreamingEndpointFunc(UINT64 customData,
     KinesisVideoClientWrapper *pWrapper = FROM_WRAPPER_HANDLE(customData);
     CHECK(pWrapper != NULL);
 
-    // Get the ENV from the JavaVM
-    JNIEnv *env;
-    BOOL detached = FALSE;
     STATUS retStatus = STATUS_SUCCESS;
+    JNIEnv *env;
     jstring jstrStreamName = NULL;
     jstring jstrApiName = NULL;
     jbyteArray authByteArray = NULL;
 
-    INT32 envState = pWrapper->mJvm->GetEnv((PVOID*) &env, JNI_VERSION_1_6);
-    if (envState == JNI_EDETACHED) {
-        ATTACH_CURRENT_THREAD_TO_JVM(env);
-
-        // Store the detached so we can detach the thread after the call
-        detached = TRUE;
-    }
+    CHECK_JNI_THREAD_ATTACH(pWrapper->getJVM());
 
     // Call the Java func
     jstrStreamName = env->NewStringUTF(streamName);
@@ -2018,7 +1843,7 @@ STATUS KinesisVideoClientWrapper::getStreamingEndpointFunc(UINT64 customData,
                             (const jbyte*) pCallbackContext->pAuthInfo->data);
 
     // Invoke the callback
-    retStatus = env->CallIntMethod(pWrapper->mGlobalJniObjRef,
+    retStatus = env->CallIntMethod(pWrapper->getJavaObjectRef(),
                                    pWrapper->mGetStreamingEndpointMethodId,
                                    jstrStreamName,
                                    jstrApiName,
@@ -2041,10 +1866,7 @@ CleanUp:
         env->DeleteLocalRef(authByteArray);
     }
 
-    // Detach the thread if we have attached it to JVM
-    if (detached) {
-        pWrapper->mJvm->DetachCurrentThread();
-    }
+    CLEANUP_JNI_THREAD_DETACH(pWrapper->getJVM());
 
     return retStatus;
 }
@@ -2059,20 +1881,12 @@ STATUS KinesisVideoClientWrapper::getStreamingTokenFunc(UINT64 customData,
     KinesisVideoClientWrapper *pWrapper = FROM_WRAPPER_HANDLE(customData);
     CHECK(pWrapper != NULL);
 
-    // Get the ENV from the JavaVM
-    JNIEnv *env;
-    BOOL detached = FALSE;
     STATUS retStatus = STATUS_SUCCESS;
+    JNIEnv *env;
     jstring jstrStreamName = NULL;
     jbyteArray authByteArray = NULL;
 
-    INT32 envState = pWrapper->mJvm->GetEnv((PVOID*) &env, JNI_VERSION_1_6);
-    if (envState == JNI_EDETACHED) {
-        ATTACH_CURRENT_THREAD_TO_JVM(env);
-
-        // Store the detached so we can detach the thread after the call
-        detached = TRUE;
-    }
+    CHECK_JNI_THREAD_ATTACH(pWrapper->getJVM());
 
     // Call the Java func
     jstrStreamName = env->NewStringUTF(streamName);
@@ -2090,7 +1904,7 @@ STATUS KinesisVideoClientWrapper::getStreamingTokenFunc(UINT64 customData,
                             (const jbyte*) pCallbackContext->pAuthInfo->data);
 
     // Invoke the callback
-    retStatus = env->CallIntMethod(pWrapper->mGlobalJniObjRef,
+    retStatus = env->CallIntMethod(pWrapper->getJavaObjectRef(),
                                    pWrapper->mGetStreamingTokenMethodId,
                                    jstrStreamName,
                                    pCallbackContext->callAfter,
@@ -2112,10 +1926,7 @@ CleanUp:
         env->DeleteLocalRef(authByteArray);
     }
 
-    // Detach the thread if we have attached it to JVM
-    if (detached) {
-        pWrapper->mJvm->DetachCurrentThread();
-    }
+    CLEANUP_JNI_THREAD_DETACH(pWrapper->getJVM());
 
     return retStatus;
 }
@@ -2134,20 +1945,12 @@ STATUS KinesisVideoClientWrapper::putStreamFunc(UINT64 customData,
     KinesisVideoClientWrapper *pWrapper = FROM_WRAPPER_HANDLE(customData);
     CHECK(pWrapper != NULL);
 
-    // Get the ENV from the JavaVM
-    JNIEnv *env;
-    BOOL detached = FALSE;
     STATUS retStatus = STATUS_SUCCESS;
+    JNIEnv *env;
     jstring jstrStreamName = NULL, jstrContainerType = NULL, jstrStreamingEndpoint = NULL;
     jbyteArray authByteArray = NULL;
 
-    INT32 envState = pWrapper->mJvm->GetEnv((PVOID*) &env, JNI_VERSION_1_6);
-    if (envState == JNI_EDETACHED) {
-        ATTACH_CURRENT_THREAD_TO_JVM(env);
-
-        // Store the detached so we can detach the thread after the call
-        detached = TRUE;
-    }
+    CHECK_JNI_THREAD_ATTACH(pWrapper->getJVM());
 
     // Call the Java func
     jstrStreamName = env->NewStringUTF(streamName);
@@ -2169,7 +1972,7 @@ STATUS KinesisVideoClientWrapper::putStreamFunc(UINT64 customData,
                             (const jbyte*) pCallbackContext->pAuthInfo->data);
 
     // Invoke the callback
-    retStatus = env->CallIntMethod(pWrapper->mGlobalJniObjRef,
+    retStatus = env->CallIntMethod(pWrapper->getJavaObjectRef(),
                                    pWrapper->mPutStreamMethodId,
                                    jstrStreamName,
                                    jstrContainerType,
@@ -2200,10 +2003,7 @@ CleanUp:
         env->DeleteLocalRef(authByteArray);
     }
 
-    // Detach the thread if we have attached it to JVM
-    if (detached) {
-        pWrapper->mJvm->DetachCurrentThread();
-    }
+    CLEANUP_JNI_THREAD_DETACH(pWrapper->getJVM());
 
     return retStatus;
 }
@@ -2214,34 +2014,24 @@ STATUS KinesisVideoClientWrapper::tagResourceFunc(UINT64 customData,
                                             PTag tags,
                                             PServiceCallContext pCallbackContext)
 {
-    JNIEnv *env;
-    BOOL detached = FALSE;
     STATUS retStatus = STATUS_SUCCESS;
+    JNIEnv *env;
     jstring jstrStreamArn = NULL, jstrTagName = NULL, jstrTagValue = NULL;
     jbyteArray authByteArray = NULL;
     jobjectArray tagArray = NULL;
     jobject tag = NULL;
     jmethodID methodId = NULL;
     jclass tagClass = NULL;
-    INT32 envState;
     UINT32 i;
 
     DLOGS("TID 0x%016" PRIx64 " tagResourceFunc called.", GETTID());
 
     KinesisVideoClientWrapper *pWrapper = FROM_WRAPPER_HANDLE(customData);
     CHECK(pWrapper != NULL);
+    CHECK_JNI_THREAD_ATTACH(pWrapper->getJVM());
 
-    // Early return if no tags
+    // Do nothing (early return) if no tags
     CHK(tagCount != 0 && tags != NULL, STATUS_SUCCESS);
-
-    // Get the ENV from the JavaVM and ensure we have a JVM thread
-    envState = pWrapper->mJvm->GetEnv((PVOID*) &env, JNI_VERSION_1_6);
-    if (envState == JNI_EDETACHED) {
-        ATTACH_CURRENT_THREAD_TO_JVM(env);
-
-        // Store the detached so we can detach the thread after the call
-        detached = TRUE;
-    }
 
     // Call the Java func to create a new string
     jstrStreamArn = env->NewStringUTF(streamArn);
@@ -2290,7 +2080,7 @@ STATUS KinesisVideoClientWrapper::tagResourceFunc(UINT64 customData,
                             (const jbyte*) pCallbackContext->pAuthInfo->data);
 
     // Invoke the callback
-    retStatus = env->CallIntMethod(pWrapper->mGlobalJniObjRef,
+    retStatus = env->CallIntMethod(pWrapper->getJavaObjectRef(),
                                    pWrapper->mTagResourceMethodId,
                                    jstrStreamArn,
                                    tagArray,
@@ -2317,21 +2107,15 @@ CleanUp:
         env->DeleteLocalRef(tagArray);
     }
 
-    // Detach the thread if we have attached it to JVM
-    if (detached) {
-        pWrapper->mJvm->DetachCurrentThread();
-    }
+    CLEANUP_JNI_THREAD_DETACH(pWrapper->getJVM());
 
     return retStatus;
 }
 
 STATUS KinesisVideoClientWrapper::getAuthInfo(jmethodID methodId, PBYTE* ppCert, PUINT32 pSize, PUINT64 pExpiration)
 {
-    // Get the ENV from the JavaVM
-    JNIEnv *env;
-
-    BOOL detached = FALSE;
     STATUS retStatus = STATUS_SUCCESS;
+    JNIEnv *env;
     jbyteArray byteArray = NULL;
     jobject jAuthInfoObj = NULL;
     jbyte* bufferPtr = NULL;
@@ -2346,16 +2130,10 @@ STATUS KinesisVideoClientWrapper::getAuthInfo(jmethodID methodId, PBYTE* ppCert,
     // Store this pointer so we can run the common macros
     KinesisVideoClientWrapper *pWrapper = this;
 
-    INT32 envState = mJvm->GetEnv((PVOID*) &env, JNI_VERSION_1_6);
-    if (envState == JNI_EDETACHED) {
-        ATTACH_CURRENT_THREAD_TO_JVM(env);
-
-        // Store the detached so we can detach the thread after the call
-        detached = TRUE;
-    }
+    CHECK_JNI_THREAD_ATTACH(pWrapper->getJVM());
 
     // Call the Java func
-    jAuthInfoObj = env->CallObjectMethod(mGlobalJniObjRef, methodId);
+    jAuthInfoObj = env->CallObjectMethod(pWrapper->getJavaObjectRef(), methodId);
     if (jAuthInfoObj == NULL) {
         DLOGE("Failed to get the object for the AuthInfo object. methodId %s", methodId);
         retStatus = STATUS_INVALID_ARG;
@@ -2431,10 +2209,7 @@ CleanUp:
         env->ReleaseByteArrayElements(byteArray, bufferPtr, 0);
     }
 
-    // Detach the thread if we have attached it to JVM
-    if (detached) {
-        mJvm->DetachCurrentThread();
-    }
+    CLEANUP_JNI_THREAD_DETACH(pWrapper->getJVM());
 
     return retStatus;
 }
@@ -2446,58 +2221,37 @@ STATUS KinesisVideoClientWrapper::clientReadyFunc(UINT64 customData, CLIENT_HAND
     KinesisVideoClientWrapper *pWrapper = FROM_WRAPPER_HANDLE(customData);
     CHECK(pWrapper != NULL);
 
-    // Get the ENV from the JavaVM
-    JNIEnv *env;
-    BOOL detached = FALSE;
     STATUS retStatus = STATUS_SUCCESS;
+    JNIEnv *env;
 
-    INT32 envState = pWrapper->mJvm->GetEnv((PVOID*) &env, JNI_VERSION_1_6);
-    if (envState == JNI_EDETACHED) {
-        ATTACH_CURRENT_THREAD_TO_JVM(env);
-
-        // Store the detached so we can detach the thread after the call
-        detached = TRUE;
-    }
+    CHECK_JNI_THREAD_ATTACH(pWrapper->getJVM());
 
     // Call the Java func
-    env->CallVoidMethod(pWrapper->mGlobalJniObjRef, pWrapper->mClientReadyMethodId, (jlong) TO_WRAPPER_HANDLE(pWrapper));
+    env->CallVoidMethod(pWrapper->getJavaObjectRef(), pWrapper->mClientReadyMethodId, (jlong) TO_WRAPPER_HANDLE(pWrapper));
     CHK_JVM_EXCEPTION(env);
 
 CleanUp:
 
-    // Detach the thread if we have attached it to JVM
-    if (detached) {
-        pWrapper->mJvm->DetachCurrentThread();
-    }
+    CLEANUP_JNI_THREAD_DETACH(pWrapper->getJVM());
 
     return retStatus;
 }
 
 STATUS KinesisVideoClientWrapper::createDeviceFunc(UINT64 customData, PCHAR deviceName, PServiceCallContext pCallbackContext)
 {
-    JNIEnv *env;
-    BOOL detached = FALSE;
     STATUS retStatus = STATUS_SUCCESS;
+    JNIEnv *env;
     jstring jstrDeviceName = NULL;
     jbyteArray authByteArray = NULL;
-    INT32 envState;
 
     DLOGS("TID 0x%016" PRIx64 " createDeviceFunc called.", GETTID());
 
     KinesisVideoClientWrapper *pWrapper = FROM_WRAPPER_HANDLE(customData);
     CHECK(pWrapper != NULL);
+    CHECK_JNI_THREAD_ATTACH(pWrapper->getJVM());
 
     // Device name should be valid
     CHK(deviceName != 0, STATUS_NULL_ARG);
-
-    // Get the ENV from the JavaVM and ensure we have a JVM thread
-    envState = pWrapper->mJvm->GetEnv((PVOID*) &env, JNI_VERSION_1_6);
-    if (envState == JNI_EDETACHED) {
-        ATTACH_CURRENT_THREAD_TO_JVM(env);
-
-        // Store the detached so we can detach the thread after the call
-        detached = TRUE;
-    }
 
     // Call the Java func to create a new string
     jstrDeviceName = env->NewStringUTF(deviceName);
@@ -2517,7 +2271,7 @@ STATUS KinesisVideoClientWrapper::createDeviceFunc(UINT64 customData, PCHAR devi
                             (const jbyte*) pCallbackContext->pAuthInfo->data);
 
     // Invoke the callback
-    retStatus = env->CallIntMethod(pWrapper->mGlobalJniObjRef,
+    retStatus = env->CallIntMethod(pWrapper->getJavaObjectRef(),
                                    pWrapper->mCreateDeviceMethodId,
                                    jstrDeviceName,
                                    pCallbackContext->callAfter,
@@ -2535,39 +2289,27 @@ CleanUp:
         env->DeleteLocalRef(jstrDeviceName);
     }
 
-    // Detach the thread if we have attached it to JVM
-    if (detached) {
-        pWrapper->mJvm->DetachCurrentThread();
-    }
+    CLEANUP_JNI_THREAD_DETACH(pWrapper->getJVM());
 
     return retStatus;
 }
 
 STATUS KinesisVideoClientWrapper::deviceCertToTokenFunc(UINT64 customData, PCHAR deviceName, PServiceCallContext pCallbackContext)
 {
-    JNIEnv *env;
-    BOOL detached = FALSE;
     STATUS retStatus = STATUS_SUCCESS;
+    JNIEnv *env;
     jstring jstrDeviceName = NULL;
     jbyteArray authByteArray = NULL;
-    INT32 envState;
 
     DLOGS("TID 0x%016" PRIx64 " deviceCertToTokenFunc called.", GETTID());
 
     KinesisVideoClientWrapper *pWrapper = FROM_WRAPPER_HANDLE(customData);
     CHECK(pWrapper != NULL);
 
+    CHECK_JNI_THREAD_ATTACH(pWrapper->getJVM());
+
     // Device name should be valid
     CHK(deviceName != 0, STATUS_NULL_ARG);
-
-    // Get the ENV from the JavaVM and ensure we have a JVM thread
-    envState = pWrapper->mJvm->GetEnv((PVOID*) &env, JNI_VERSION_1_6);
-    if (envState == JNI_EDETACHED) {
-        ATTACH_CURRENT_THREAD_TO_JVM(env);
-
-        // Store the detached so we can detach the thread after the call
-        detached = TRUE;
-    }
 
     // Call the Java func to create a new string
     jstrDeviceName = env->NewStringUTF(deviceName);
@@ -2587,7 +2329,7 @@ STATUS KinesisVideoClientWrapper::deviceCertToTokenFunc(UINT64 customData, PCHAR
                             (const jbyte*) pCallbackContext->pAuthInfo->data);
 
     // Invoke the callback
-    retStatus = env->CallIntMethod(pWrapper->mGlobalJniObjRef,
+    retStatus = env->CallIntMethod(pWrapper->getJavaObjectRef(),
                                    pWrapper->mDeviceCertToTokenMethodId,
                                    jstrDeviceName,
                                    pCallbackContext->callAfter,
@@ -2605,10 +2347,7 @@ CleanUp:
         env->DeleteLocalRef(jstrDeviceName);
     }
 
-    // Detach the thread if we have attached it to JVM
-    if (detached) {
-        pWrapper->mJvm->DetachCurrentThread();
-    }
+    CLEANUP_JNI_THREAD_DETACH(pWrapper->getJVM());
 
     return retStatus;
 }
@@ -2623,20 +2362,32 @@ AUTH_INFO_TYPE KinesisVideoClientWrapper::authInfoTypeFromInt(UINT32 authInfoTyp
     }
 }
 
+// Note: PIC's logging macros point to a global log printing function, so which client it belongs to is ambiguous.
+// We cannot change all of the logging APIs (e.g. `DLOGE("Test message");`) to accept which client it belongs to as
+// a parameter without breaking backwards compatibility.
 VOID KinesisVideoClientWrapper::logPrintFunc(UINT32 level, PCHAR tag, PCHAR fmt, ...)
 {
-    JNIEnv *env;
-    BOOL attached = FALSE;
-    STATUS retStatus = STATUS_SUCCESS;
-    jstring jstrTag = NULL, jstrFmt = NULL, jstrBuffer = NULL;
-    CHAR buffer[MAX_LOG_MESSAGE_LENGTH];
-    va_list list;
-    INT32 envState;
+    KinesisVideoClientWrapper* pWrapper = ClientRegistry::getInstance().getFirstClient();
 
-    // Prevent infinite logging loops if mGlobalJniObjRef has already been freed
-    if (mGlobalJniObjRef == NULL) {
+    if (pWrapper == nullptr) {
+        // Fallback to standard output if no wrapper context available
         va_list args;
         va_start(args, fmt);
+        char buffer[MAX_LOG_MESSAGE_LENGTH];
+        vsnprintf(buffer, MAX_LOG_MESSAGE_LENGTH, fmt, args);
+        va_end(args);
+
+        std::cout << "Fallback! "
+                  << "Level: " << level << ", Tag: " << (tag ? tag : "NULL")
+                  << ", Message: " << buffer << std::endl;
+        return;
+    }
+
+    // Prevent infinite logging loops if javaObjectRef has already been freed
+    if (pWrapper->getJavaObjectRef() == nullptr) {
+        va_list args;
+        va_start(args, fmt);
+        char buffer[MAX_LOG_MESSAGE_LENGTH];
         vsnprintf(buffer, MAX_LOG_MESSAGE_LENGTH, fmt, args);
         va_end(args);
 
@@ -2644,17 +2395,28 @@ VOID KinesisVideoClientWrapper::logPrintFunc(UINT32 level, PCHAR tag, PCHAR fmt,
         std::cout << "logPrintFunc called after free! "
                   << "Level: " << level << ", Tag: " << (tag ? tag : "NULL")
                   << ", Message: " << buffer << std::endl;
-
-        CHK(FALSE, STATUS_SUCCESS);
+        return;
     }
-    CHK(mJvm != NULL, STATUS_SUCCESS);
 
-    envState = mJvm->GetEnv((PVOID*) &env, JNI_VERSION_1_6);
-    if (envState == JNI_EDETACHED) {
-        if (mJvm->AttachCurrentThread((PVOID*) &env, NULL) != 0) {
-            goto CleanUp;
-        }
-        attached = TRUE;
+    if (pWrapper->getJVM() == nullptr) {
+        return;
+    }
+
+    JNIEnv *env;
+    STATUS retStatus = STATUS_SUCCESS;
+    jstring jstrTag = NULL, jstrFmt = NULL, jstrBuffer = NULL;
+    CHAR buffer[MAX_LOG_MESSAGE_LENGTH];
+    va_list list;
+    jthrowable pendingException = NULL;
+    BOOL hadPendingException = FALSE;
+
+    CHECK_JNI_THREAD_ATTACH(pWrapper->getJVM());
+
+    // Save any pending exception before we do JNI calls
+    if (env->ExceptionCheck()) {
+        hadPendingException = TRUE;
+        pendingException = env->ExceptionOccurred();
+        env->ExceptionClear(); // Clear it temporarily so we can make JNI calls
     }
 
     va_start(list, fmt);
@@ -2671,22 +2433,17 @@ VOID KinesisVideoClientWrapper::logPrintFunc(UINT32 level, PCHAR tag, PCHAR fmt,
     CHK(jstrFmt != NULL, STATUS_NOT_ENOUGH_MEMORY);
     CHK(jstrBuffer != NULL, STATUS_NOT_ENOUGH_MEMORY);
 
-    env->CallVoidMethod(mGlobalJniObjRef, mLogPrintMethodId, level, jstrTag, jstrFmt, jstrBuffer);
+    env->CallVoidMethod(pWrapper->getJavaObjectRef(), pWrapper->getLogPrintMethodId(), level, jstrTag, jstrFmt, jstrBuffer);
 
-    CHK_JVM_EXCEPTION(env);
-
-    /*
-    Sample logs from PIC as displayed by log4j2 in Java Producer SDK
-    2021-12-10 10:01:53,874 [main] TRACE c.a.k.j.c.KinesisVideoJavaClientFactory - [PIC] KinesisVideoProducerJNI - Java_com_amazonaws_kinesisvideo_internal_producer_jni_NativeKinesisVideoProducerJni_createKinesisVideoStream(): Enter
-    2021-12-10 10:01:53,875 [main] INFO  c.a.k.j.c.KinesisVideoJavaClientFactory - [PIC] KinesisVideoProducerJNI - Java_com_amazonaws_kinesisvideo_internal_producer_jni_NativeKinesisVideoProducerJni_createKinesisVideoStream(): Creating Kinesis Video stream.
-    2021-12-10 10:01:53,875 [main] INFO  c.a.k.j.c.KinesisVideoJavaClientFactory - [PIC] KinesisVideoClient - createKinesisVideoStream(): Creating Kinesis Video Stream.
-    2021-12-10 10:01:53,875 [main] DEBUG c.a.k.j.c.KinesisVideoJavaClientFactory - [PIC] Stream - logStreamInfo(): Kinesis Video Stream Info
-
-    2021-12-10 10:01:53,875 [main] DEBUG c.a.k.j.c.KinesisVideoJavaClientFactory - [PIC] Stream - logStreamInfo(): Kinesis Video Stream Info
-    2021-12-10 10:01:53,875 [main] DEBUG c.a.k.j.c.KinesisVideoJavaClientFactory - [PIC] Stream - logStreamInfo(): 	Stream name: NewStreamJava12 
-    2021-12-10 10:01:53,875 [main] DEBUG c.a.k.j.c.KinesisVideoJavaClientFactory - [PIC] Stream - logStreamInfo(): 	Streaming type: STREAMING_TYPE_REALTIME 
-    2021-12-10 10:01:53,876 [main] DEBUG c.a.k.j.c.KinesisVideoJavaClientFactory - [PIC] Stream - logStreamInfo(): 	Content type: video/h264 
-    */
+    // Don't use CHK_JVM_EXCEPTION here as it would clear our saved exception
+    // Just check if the logging call itself threw an exception
+    if (env->ExceptionCheck()) {
+        // The logging call threw an exception, clear it and log it
+        jthrowable loggingException = env->ExceptionOccurred();
+        env->ExceptionClear();
+        std::cerr << "An exception occurred during logging call" << std::endl;
+        env->DeleteLocalRef(loggingException);
+    }
 
 CleanUp:
 
@@ -2702,8 +2459,11 @@ CleanUp:
         env->DeleteLocalRef(jstrBuffer);
     }
 
-    // Detach the thread if we have attached it to JVM
-    if (attached) {
-        mJvm->DetachCurrentThread();
-    }   
+    // Restore the pending exception if we had one
+    if (hadPendingException && pendingException != NULL) {
+        env->Throw(pendingException);
+        env->DeleteLocalRef(pendingException);
+    }
+
+    CLEANUP_JNI_THREAD_DETACH(pWrapper->getJVM());
 }

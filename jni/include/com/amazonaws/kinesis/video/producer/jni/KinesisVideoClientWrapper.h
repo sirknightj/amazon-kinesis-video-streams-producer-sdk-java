@@ -12,6 +12,7 @@
 #include "TimedSemaphore.h"
 #include "JNICommon.h"
 #include "Parameters.h"
+#include "ClientJVMContext.h"
 
 #define TO_WRAPPER_HANDLE(p)                    ((jlong) (p))
 #define FROM_WRAPPER_HANDLE(h)                  ((KinesisVideoClientWrapper*) (h))
@@ -36,7 +37,7 @@
 #ifdef ANDROID_BUILD
 #define ATTACH_CURRENT_THREAD_TO_JVM(env) \
     do { \
-        if (pWrapper->mJvm->AttachCurrentThread(&env, NULL) != 0) { \
+        if (wrapper->getJVM()->AttachCurrentThread(&env, NULL) != 0) { \
             DLOGE("Fail to attache to JVM!");\
             return STATUS_INVALID_OPERATION; \
         } \
@@ -44,22 +45,49 @@
 #else
 #define ATTACH_CURRENT_THREAD_TO_JVM(env) \
     do { \
-        if (pWrapper->mJvm->AttachCurrentThread((PVOID*) &env, NULL) != 0) { \
+        if (wrapper->getJVM()->AttachCurrentThread((PVOID*) &env, NULL) != 0) { \
             DLOGE("Fail to attache to JVM!");\
             return STATUS_INVALID_OPERATION; \
         } \
     } while (FALSE)
 #endif
 
+/**
+ * Macro to check and attach current thread to JVM if needed
+ * Sets up env, detached flag, and retStatus variables
+ *
+ * Assumes 'JNIEnv* env' and 'STATUS retStatus' exists.
+ * If attaching fails, will goTo cleanup and set the retStatus to STATUS_INVALID_OPERATION.
+ */
+ // Note: Not using do/while to set the variables in the outer scope.
+#define CHECK_JNI_THREAD_ATTACH(jvm_ptr) \
+    BOOL detached = FALSE; \
+    INT32 envState = (jvm_ptr)->GetEnv((PVOID*) &env, JNI_VERSION_1_6); \
+    if (envState == JNI_EDETACHED) { \
+        if ((jvm_ptr)->AttachCurrentThread((PVOID*) &env, NULL) != 0) { \
+            CHK_ERR(FALSE, STATUS_INVALID_OPERATION, "Failed to attach current thread to JVM"); \
+        } \
+        detached = TRUE; \
+    }
+
+/**
+ * Macro to detach current thread from JVM if it was attached
+ *
+ * Usage: CLEANUP_JNI_THREAD_DETACH(pWrapper->mJvm)
+ */
+#define CLEANUP_JNI_THREAD_DETACH(jvm_ptr) \
+    if (detached) { \
+        (jvm_ptr)->DetachCurrentThread(); \
+    }
+
 class KinesisVideoClientWrapper
 {
     CLIENT_HANDLE mClientHandle;
-    static JavaVM *mJvm; // scope revised to static to make it accessible from static function- logPrintFunc 
-    static jobject mGlobalJniObjRef; // scope revised to static to make it accessible from static function- logPrintFunc
     ClientCallbacks mClientCallbacks;
     DeviceInfo mDeviceInfo;
     AuthInfo mAuthInfo;
     SyncMutex mSyncLock;
+    ClientJVMContext mJVMContext;
 
     // Extracted method IDs
     jmethodID mGetDeviceCertificateMethodId;
@@ -87,6 +115,13 @@ class KinesisVideoClientWrapper
     jmethodID mCreateDeviceMethodId;
     jmethodID mDeviceCertToTokenMethodId;
     static jmethodID mLogPrintMethodId;
+
+    //////////////////////////////////////////////////////////////////////////////////////
+    // Internal private methods
+    //////////////////////////////////////////////////////////////////////////////////////
+    JavaVM* getJVM() const { return mJVMContext.jvm; }
+    jobject getJavaObjectRef() const { return mJVMContext.javaObjectRef; }
+    jmethodID getLogPrintMethodId() const { return mJVMContext.logPrintMethodId; }
 
     //////////////////////////////////////////////////////////////////////////////////////
     // Internal private methods
@@ -171,8 +206,8 @@ class KinesisVideoClientWrapper
 
 public:
     KinesisVideoClientWrapper(JNIEnv* env,
-                        jobject thiz,
-                        jobject deviceInfo);
+                              jobject thiz,
+                              jobject deviceInfo);
 
     ~KinesisVideoClientWrapper();
     SyncMutex& getSyncLock();
