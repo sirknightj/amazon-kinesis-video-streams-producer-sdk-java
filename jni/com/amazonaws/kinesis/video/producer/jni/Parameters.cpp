@@ -20,6 +20,8 @@ BOOL setDeviceInfo(JNIEnv *env, jobject deviceInfo, PDeviceInfo pDeviceInfo)
         CHK(FALSE, STATUS_INVALID_OPERATION);
     }
 
+    MEMSET(pDeviceInfo, 0x00, SIZEOF(DeviceInfo));
+
     // Retrieve the methods and call it
     methodId = env->GetMethodID(cls, "getVersion", "()I");
     if (methodId == NULL) {

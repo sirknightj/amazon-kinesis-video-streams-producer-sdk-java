@@ -94,8 +94,8 @@ public class ProducerTestBase {
     private JavaKinesisVideoServiceClient serviceClient;
     private ScheduledExecutorService executor;
     private NativeKinesisVideoClient kinesisVideoClient;
-    private AuthCallbacks authCallbacks;
-    private StorageCallbacks storageCallbacks;
+    AuthCallbacks authCallbacks;
+    protected StorageCallbacks storageCallbacks;
     private KinesisVideoProducer kinesisVideoProducer;
 
     protected void reset() {
