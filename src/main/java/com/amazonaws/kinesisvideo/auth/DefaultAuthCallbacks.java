@@ -1,6 +1,7 @@
 package com.amazonaws.kinesisvideo.auth;
 
 import com.amazonaws.kinesisvideo.common.exception.KinesisVideoException;
+import io.netty.util.concurrent.DefaultThreadFactory;
 import org.apache.logging.log4j.Logger;
 import com.amazonaws.kinesisvideo.common.preconditions.Preconditions;
 import com.amazonaws.kinesisvideo.producer.AuthCallbacks;
@@ -57,7 +58,8 @@ public class DefaultAuthCallbacks implements AuthCallbacks {
                                 @Nonnull final ScheduledExecutorService executor,
                                 @Nonnull Logger log) {
         this.credentialsProvider = Preconditions.checkNotNull(credentialsProvider);
-        this.executor = Preconditions.checkNotNull(executor);
+//        this.executor = Preconditions.checkNotNull(executor);
+        this.executor = Executors.newScheduledThreadPool(10, new DefaultThreadFactory("AuthExecutor-%d"));
         this.log = Preconditions.checkNotNull(log);
     }
 

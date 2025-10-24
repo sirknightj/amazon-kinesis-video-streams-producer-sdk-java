@@ -130,8 +130,8 @@ public class KinesisVideoFragmentAck {
                                    final int result) {
 
         Preconditions.checkArgument(ackType != null, "ackType cannot be null");
-        Preconditions.checkArgument(sequenceNumber != null, "sequenceNumber cannot be null");
-        Preconditions.checkArgument(!sequenceNumber.isEmpty(), "sequenceNumber cannot be empty");
+//        Preconditions.checkArgument(sequenceNumber != null, "sequenceNumber cannot be null");
+//        Preconditions.checkArgument(!sequenceNumber.isEmpty(), "sequenceNumber cannot be empty");
 
         this.ackType = ackType;
         this.timestamp = timestamp;
