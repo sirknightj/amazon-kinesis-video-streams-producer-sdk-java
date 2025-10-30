@@ -36,6 +36,11 @@ jobs:
       - name: Checkout the repository
         uses: actions/checkout@v4
 
+      - name: Setup cmake
+        uses: jwlawson/actions-setup-cmake@v2
+        with:
+          cmake-version: '3.x'
+
       - name: Set up JDK
         uses: actions/setup-java@v4
         with:
