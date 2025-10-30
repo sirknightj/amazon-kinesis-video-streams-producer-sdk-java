@@ -52,7 +52,13 @@ jobs:
       - name: Install dependencies
         run: |
           apt-get update
-          apt-get install -y git build-essential pkg-config maven awscli jq
+          apt-get install -y git build-essential pkg-config maven jq unzip
+
+      - name: Install AWS CLI
+        run:
+          curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+          unzip awscliv2.zip
+          ./aws/install
 
       - name: Build JNI with ${{ matrix.sanitizer }}
         run: |
