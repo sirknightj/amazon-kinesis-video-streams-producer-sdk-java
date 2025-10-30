@@ -24,7 +24,10 @@ jobs:
       STREAM_NAME: producer-java-ubuntu-22-${{ matrix.sanitizer }}-ci
       TEST_STREAMS_PREFIX: producer-java-ubuntu-22-${{ matrix.sanitizer }}-ci
 
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
+    container:
+      image: public.ecr.aws/ubuntu/ubuntu:22.04
+
     permissions:
       id-token: write
       contents: read
@@ -66,7 +69,11 @@ jobs:
 
       - name: Run DemoAppMain with ${{ matrix.sanitizer }}
         run: |
+          set -x
           JAR_FILE=$(find target -name '*jar-with-dependencies.jar' | head -n 1)
+
+          ls /usr/lib/
+          ls /usr/lib/x86_64-linux-gnu/
 
           if [ -z "$JAR_FILE" ]; then
             echo "Error: JAR file not found!"
@@ -79,7 +86,7 @@ jobs:
             -Daws.secretKey=${AWS_SECRET_ACCESS_KEY} \
             -Daws.sessionToken=${AWS_SESSION_TOKEN} \
             -Djava.library.path=${JNI_FOLDER} \
-            -Dkvs-stream=$STREAM_NAME \
+            -Dkvs-stream=${STREAM_NAME} \
             -Dlog4j.configurationFile=.github/log4j2.xml \
             com.amazonaws.kinesisvideo.demoapp.DemoAppMain
 
