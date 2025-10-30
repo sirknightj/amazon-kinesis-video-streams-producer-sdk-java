@@ -21,6 +21,7 @@ jobs:
       fail-fast: false
 
     env:
+      DEBIAN_FRONTEND: noninteractive
       STREAM_NAME: producer-java-ubuntu-22-${{ matrix.sanitizer }}-ci
       TEST_STREAMS_PREFIX: producer-java-ubuntu-22-${{ matrix.sanitizer }}-ci
 
