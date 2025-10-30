@@ -48,6 +48,10 @@ jobs:
           distribution: 'adopt'
           cache: maven
 
+      - name: Install dependencies
+        run: |
+          apt-get install -y git build-essential pkg-config
+
       - name: Build JNI with ${{ matrix.sanitizer }}
         run: |
           mkdir build
