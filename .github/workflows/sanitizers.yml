@@ -52,7 +52,7 @@ jobs:
       - name: Install dependencies
         run: |
           apt-get update
-          apt-get install -y git build-essential pkg-config maven jq unzip curl
+          apt-get install -y git build-essential pkg-config clang-14 maven jq unzip curl
 
       - name: Install AWS CLI v2
         run: |
@@ -63,6 +63,9 @@ jobs:
 
       - name: Build JNI with ${{ matrix.sanitizer }}
         run: |
+          # Note: GCC does not support memory sanitizer, using Clang instead
+          export CC=clang
+          export CXX=clang++
           mkdir build
           cd build
           cmake .. -D${{ matrix.sanitizer }}=ON
