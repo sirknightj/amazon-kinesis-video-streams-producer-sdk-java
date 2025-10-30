@@ -17,7 +17,15 @@ jobs:
   sanitizer-tests:
     strategy:
       matrix:
-        sanitizer: [ADDRESS_SANITIZER, MEMORY_SANITIZER, THREAD_SANITIZER, UNDEFINED_BEHAVIOR_SANITIZER]
+        include:
+          - sanitizer: ADDRESS_SANITIZER
+            lib_name: libasan.so
+          - sanitizer: MEMORY_SANITIZER
+            lib_name: libmsan.so
+          - sanitizer: THREAD_SANITIZER
+            lib_name: libtsan.so
+          - sanitizer: UNDEFINED_BEHAVIOR_SANITIZER
+            lib_name: libubsan.so
       fail-fast: false
 
     env:
@@ -83,7 +91,6 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
           aws-region: ${{ secrets.AWS_REGION }}
 
-
       - name: Create the stream (DemoAppMain)
         working-directory: scripts
         run: |
@@ -93,11 +100,10 @@ jobs:
 
       - name: Run DemoAppMain with ${{ matrix.sanitizer }}
         run: |
-          set -x
           JAR_FILE=$(find target -name '*jar-with-dependencies.jar' | head -n 1)
 
-          ls /usr/lib/
-          ls /usr/lib/x86_64-linux-gnu/
+          # Dynamically find sanitizer library
+          SANITIZER_LIB=$(find /usr/lib/x86_64-linux-gnu /usr/lib/clang/*/lib/linux -name "${{ matrix.lib_name }}*" 2>/dev/null | head -n 1)
 
           if [ -z "$JAR_FILE" ]; then
             echo "Error: JAR file not found!"
@@ -105,6 +111,14 @@ jobs:
           fi
 
           echo "Using JAR file: $JAR_FILE"
+          
+          if [ -n "$SANITIZER_LIB" ]; then
+            echo "Found sanitizer library: $SANITIZER_LIB"
+            export LD_PRELOAD="$SANITIZER_LIB"
+          else
+            echo "Warning: Sanitizer library not found for ${{ matrix.lib_name }}"
+          fi
+
           java -classpath "$JAR_FILE" \
             -Daws.accessKeyId=${AWS_ACCESS_KEY_ID} \
             -Daws.secretKey=${AWS_SECRET_ACCESS_KEY} \
@@ -120,4 +134,12 @@ jobs:
         env:
           JNI_FOLDER: ${{ github.workspace }}/build
         run: |
+          # Dynamically find sanitizer library
+          SANITIZER_LIB=$(find /usr/lib/x86_64-linux-gnu /usr/lib/clang/*/lib/linux -name "${{ matrix.lib_name }}*" 2>/dev/null | head -n 1)
+          
+          if [ -n "$SANITIZER_LIB" ]; then
+            echo "Found sanitizer library: $SANITIZER_LIB"
+            export LD_PRELOAD="$SANITIZER_LIB"
+          fi
+
           mvn clean test -DargLine="-Daws.accessKeyId=${AWS_ACCESS_KEY_ID} -Daws.secretKey=${AWS_SECRET_ACCESS_KEY} -Daws.sessionToken=${AWS_SESSION_TOKEN} -Djava.library.path=${JNI_FOLDER} -Dlog4j.configurationFile=.github/log4j2.xml"
