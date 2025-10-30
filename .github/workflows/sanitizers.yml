@@ -52,7 +52,7 @@ jobs:
       - name: Install dependencies
         run: |
           apt-get update
-          apt-get install -y git build-essential pkg-config maven awscli
+          apt-get install -y git build-essential pkg-config maven awscli jq
 
       - name: Build JNI with ${{ matrix.sanitizer }}
         run: |
