@@ -32,6 +32,7 @@ jobs:
       DEBIAN_FRONTEND: noninteractive
       STREAM_NAME: producer-java-ubuntu-22-${{ matrix.sanitizer }}-ci
       TEST_STREAMS_PREFIX: producer-java-ubuntu-22-${{ matrix.sanitizer }}-ci
+      JNI_FOLDER: ${{ github.workspace }}/build
 
     runs-on: ubuntu-latest
     container:
@@ -131,8 +132,6 @@ jobs:
         shell: bash
 
       - name: Run tests with ${{ matrix.sanitizer }}
-        env:
-          JNI_FOLDER: ${{ github.workspace }}/build
         run: |
           # Dynamically find sanitizer library
           SANITIZER_LIB=$(find /usr/lib/x86_64-linux-gnu /usr/lib/clang/*/lib/linux -name "${{ matrix.lib_name }}*" 2>/dev/null | head -n 1)
