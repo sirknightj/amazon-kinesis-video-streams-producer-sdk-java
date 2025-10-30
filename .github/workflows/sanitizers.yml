@@ -52,7 +52,7 @@ jobs:
       - name: Install dependencies
         run: |
           apt-get update
-          apt-get install -y git build-essential pkg-config maven jq unzip
+          apt-get install -y git build-essential pkg-config maven jq unzip curl
 
       - name: Install AWS CLI v2
         run: |
