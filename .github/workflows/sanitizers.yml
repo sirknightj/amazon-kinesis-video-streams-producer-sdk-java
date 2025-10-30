@@ -52,7 +52,10 @@ jobs:
       - name: Install dependencies
         run: |
           apt-get update
-          apt-get install -y git build-essential pkg-config clang-14 maven jq unzip curl
+          apt-get install -y git build-essential pkg-config clang maven jq unzip curl
+          clang --version
+          echo "CC=clang" >> $GITHUB_ENV
+          echo "CXX=clang++" >> $GITHUB_ENV
 
       - name: Install AWS CLI v2
         run: |
