@@ -431,6 +431,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Checkout repository
+        if: steps.check-label.outputs.has_label == 'true'
+        uses: actions/checkout@v4
+
       - name: Check for jni-update label
         id: check-label
         env:
@@ -443,10 +447,6 @@ jobs:
             echo "has_label=false" >> $GITHUB_OUTPUT
             echo "Did not detect jni-update label"
           fi
-
-      - name: Checkout repository
-        if: steps.check-label.outputs.has_label == 'true'
-        uses: actions/checkout@v4
 
       - name: Download JNI Libraries
         if: steps.check-label.outputs.has_label == 'true'
