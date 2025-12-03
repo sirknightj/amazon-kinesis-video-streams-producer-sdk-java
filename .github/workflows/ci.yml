@@ -432,7 +432,6 @@ jobs:
 
     steps:
       - name: Checkout repository
-        if: steps.check-label.outputs.has_label == 'true'
         uses: actions/checkout@v4
 
       - name: Check for jni-update label
