@@ -138,7 +138,8 @@ jobs:
 
       - name: Run tests
         run: |
-          mvn clean test -DargLine="-Daws.accessKeyId=${AWS_ACCESS_KEY_ID} -Daws.secretKey=${AWS_SECRET_ACCESS_KEY} -Daws.sessionToken=${AWS_SESSION_TOKEN} -Djava.library.path=${JNI_FOLDER} -Dlog4j.configurationFile=.github/log4j2.xml"
+          echo "hi"
+          # mvn clean test -DargLine="-Daws.accessKeyId=${AWS_ACCESS_KEY_ID} -Daws.secretKey=${AWS_SECRET_ACCESS_KEY} -Daws.sessionToken=${AWS_SESSION_TOKEN} -Djava.library.path=${JNI_FOLDER} -Dlog4j.configurationFile=.github/log4j2.xml"
         shell: bash
 
   run-samples:
@@ -429,21 +430,31 @@ jobs:
     needs: [run-unit-tests, run-samples]
     runs-on: ubuntu-latest
 
-    # If the JNI needs updating but the label wasn't attached at the PR creation time,
-    # you can manually re-trigger this action to run again after adding the label.
-    if: contains(github.event.pull_request.labels.*.name, 'jni-update')
-
     steps:
+      - name: Check for jni-update label
+        id: check-label
+        run: |
+          if gh pr view ${{ github.event.number }} --json labels --jq '.labels[].name' | grep -q "jni-update"; then
+            echo "has_label=true" >> $GITHUB_OUTPUT
+            echo "Detected jni-update label"
+          else
+            echo "has_label=false" >> $GITHUB_OUTPUT
+            echo "Did not detect jni-update label"
+          fi
+
       - name: Checkout repository
+        if: steps.check-label.outputs.has_label == 'true'
         uses: actions/checkout@v4
 
       - name: Download JNI Libraries
+        if: steps.check-label.outputs.has_label == 'true'
         uses: actions/download-artifact@v4
         with:
           pattern: jni-library-*
           path: temp-jni
 
       - name: Move JNI files to correct locations
+        if: steps.check-label.outputs.has_label == 'true'
         run: |
           mkdir -p src/main/resources/lib/{mac,mac-m1,windows,ubuntu}
 
@@ -458,6 +469,7 @@ jobs:
           find temp-jni -name "*ubuntu*" -exec cp {} src/main/resources/lib/ubuntu/libKinesisVideoProducerJNI.so \;
 
       - name: Generate MD5 sums
+        if: steps.check-label.outputs.has_label == 'true'
         run: |
           for dir in src/main/resources/lib/*/; do
             if [ -f "$dir"/*.dll ] || [ -f "$dir"/*.dylib ] || [ -f "$dir"/*.so ]; then
@@ -466,6 +478,7 @@ jobs:
           done
 
       - name: Check for changes
+        if: steps.check-label.outputs.has_label == 'true'
         id: check_changes
         run: |
           git add src/main/resources/lib
@@ -473,7 +486,7 @@ jobs:
           echo "has_changes=$(git status --porcelain | wc -l)" >> $GITHUB_OUTPUT
 
       - name: Commit and push if changed
-        if: ${{ steps.check_changes.outputs.has_changes != '0' }}
+        if: steps.check-label.outputs.has_label == 'true' && steps.check_changes.outputs.has_changes != '0'
         run: |
           git config --local user.email "github-actions@github.com"
           git config --local user.name "github-actions"
