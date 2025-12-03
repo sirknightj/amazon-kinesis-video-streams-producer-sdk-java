@@ -491,5 +491,10 @@ jobs:
         run: |
           git config --local user.email "github-actions@github.com"
           git config --local user.name "github-actions"
-          git commit -m "Update JNI libraries"
-          git push
+          git add src/main/resources/lib
+          if ! git commit -m "Update JNI libraries using ${{ github.event.pull_request.head.ref }}"; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          git pull --rebase origin ${{ github.event.pull_request.head.ref }}
+          git push origin HEAD:${{ github.event.pull_request.head.ref }}
