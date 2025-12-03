@@ -433,6 +433,8 @@ jobs:
     steps:
       - name: Check for jni-update label
         id: check-label
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           if gh pr view ${{ github.event.number }} --json labels --jq '.labels[].name' | grep -q "jni-update"; then
             echo "has_label=true" >> $GITHUB_OUTPUT
