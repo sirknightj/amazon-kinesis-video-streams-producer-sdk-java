@@ -5,9 +5,7 @@ matrix:
     - os: macos-latest
       name: macos-aarch64
     - os: ubuntu-22.04
-      name: ubuntu-22.04
-    - os: windows-2022
-      name: windows-2022
+      name: raspbian-armv7
   java:
     - 11
   sample:
