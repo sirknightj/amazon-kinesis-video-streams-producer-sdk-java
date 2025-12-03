@@ -463,11 +463,11 @@ jobs:
           find temp-jni -name "*.dll" -exec cp {} src/main/resources/lib/windows/KinesisVideoProducerJNI.dll \;
 
           # MacOS: Intel and Apple Silicon
-          find temp-jni -name "*macos-x86_64*" -exec cp {} src/main/resources/lib/mac/libKinesisVideoProducerJNI.dylib \;
-          find temp-jni -name "*macos-aarch64*" -exec cp {} src/main/resources/lib/mac-m1/libKinesisVideoProducerJNI.dylib \;
+          find temp-jni -path "*macos-x86_64*" -name "*.dylib" -exec cp {} src/main/resources/lib/mac/libKinesisVideoProducerJNI.dylib \;
+          find temp-jni -path "*macos-aarch64*" -name "*.dylib" -exec cp {} src/main/resources/lib/mac-m1/libKinesisVideoProducerJNI.dylib \;
 
           # Linux: Ubuntu (x86_64)
-          find temp-jni -name "*ubuntu*" -exec cp {} src/main/resources/lib/ubuntu/libKinesisVideoProducerJNI.so \;
+          find temp-jni -path "*ubuntu*" -name "*.so" -exec cp {} src/main/resources/lib/ubuntu/libKinesisVideoProducerJNI.so \;
 
       - name: Generate MD5 sums
         if: steps.check-label.outputs.has_label == 'true'
