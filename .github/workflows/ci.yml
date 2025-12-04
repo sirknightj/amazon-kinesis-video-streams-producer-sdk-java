@@ -481,6 +481,9 @@ jobs:
       - name: Commit and push if changed
         if: steps.check-label.outputs.has_label == 'true'
         run: |
+          # Store the original commit hash before making changes
+          ORIGINAL_HEAD=$(git rev-parse HEAD)
+          
           git config --local user.email "github-actions@github.com"
           git config --local user.name "github-actions"
 
@@ -494,7 +497,7 @@ jobs:
 
           # Check if we're still on the latest commit
           git fetch origin ${{ github.event.pull_request.head.ref }}
-          if [ "$(git rev-parse HEAD~1)" != "$(git rev-parse origin/${{ github.event.pull_request.head.ref }})" ]; then
+          if [ "$ORIGINAL_HEAD" != "$(git rev-parse origin/${{ github.event.pull_request.head.ref }})" ]; then
             echo "Branch has new commits, skipping push to avoid conflicts"
             exit 0
           fi
