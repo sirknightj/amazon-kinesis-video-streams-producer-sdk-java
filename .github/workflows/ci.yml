@@ -478,16 +478,8 @@ jobs:
             fi
           done
 
-      - name: Check for changes
-        if: steps.check-label.outputs.has_label == 'true'
-        id: check_changes
-        run: |
-          git add src/main/resources/lib
-          git status --porcelain
-          echo "has_changes=$(git status --porcelain | wc -l)" >> $GITHUB_OUTPUT
-
       - name: Commit and push if changed
-        if: steps.check-label.outputs.has_label == 'true' && steps.check_changes.outputs.has_changes != '0'
+        if: steps.check-label.outputs.has_label == 'true'
         run: |
           git config --local user.email "github-actions@github.com"
           git config --local user.name "github-actions"
