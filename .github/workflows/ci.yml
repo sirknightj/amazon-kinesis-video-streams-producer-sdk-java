@@ -427,6 +427,7 @@ jobs:
           }
 
   commit-jni-files:
+    if: github.event_name == 'pull_request'
     needs: [run-unit-tests, run-samples]
     runs-on: ubuntu-latest
 
