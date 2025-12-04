@@ -478,14 +478,14 @@ jobs:
             fi
           done
 
-      - name: Commit and push if changed
+      - name: Commit and push if changed and is latest commit
         if: steps.check-label.outputs.has_label == 'true'
         run: |
-          # Store the original commit hash before making changes
-          ORIGINAL_HEAD=$(git rev-parse HEAD)
-          
           git config --local user.email "github-actions@github.com"
           git config --local user.name "github-actions"
+
+          echo "Original PR head SHA: ${{ github.event.pull_request.head.sha }}"
+          echo "Current HEAD: $(git rev-parse HEAD)"
 
           git add src/main/resources/lib
           if git diff --staged --exit-code; then
@@ -493,13 +493,20 @@ jobs:
             exit 0
           fi
 
+          echo "Changes detected, committing..."
           git commit -m "Update JNI libraries using ${{ github.event.pull_request.head.ref }}"
+          echo "Committed. New HEAD: $(git rev-parse HEAD)"
 
-          # Check if we're still on the latest commit
+          # Check if remote branch has moved beyond the original PR head
+          echo "Fetching latest from origin/${{ github.event.pull_request.head.ref }}..."
           git fetch origin ${{ github.event.pull_request.head.ref }}
-          if [ "$ORIGINAL_HEAD" != "$(git rev-parse origin/${{ github.event.pull_request.head.ref }})" ]; then
-            echo "Branch has new commits, skipping push to avoid conflicts"
+          REMOTE_HEAD=$(git rev-parse origin/${{ github.event.pull_request.head.ref }})
+          echo "Remote HEAD: $REMOTE_HEAD"
+
+          if [ "${{ github.event.pull_request.head.sha }}" != "$REMOTE_HEAD" ]; then
+            echo "Branch has new commits (original: ${{ github.event.pull_request.head.sha }}, remote: $REMOTE_HEAD), skipping push to avoid conflicts"
             exit 0
           fi
 
+          echo "No conflicts detected, pushing..."
           git push origin HEAD:${{ github.event.pull_request.head.ref }}
