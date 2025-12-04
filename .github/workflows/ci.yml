@@ -484,7 +484,10 @@ jobs:
           git config --local user.email "github-actions@github.com"
           git config --local user.name "github-actions"
 
-          echo "Original PR head SHA: ${{ github.event.pull_request.head.sha }}"
+          ORIGINAL_PR_HEAD="${{ github.event.pull_request.head.sha }}"
+          BRANCH_NAME="${{ github.event.pull_request.head.ref }}"
+          
+          echo "Original PR head SHA: $ORIGINAL_PR_HEAD"
           echo "Current HEAD: $(git rev-parse HEAD)"
 
           git add src/main/resources/lib
@@ -494,19 +497,19 @@ jobs:
           fi
 
           echo "Changes detected, committing..."
-          git commit -m "Update JNI libraries using ${{ github.event.pull_request.head.ref }}"
+          git commit -m "Update JNI libraries using $BRANCH_NAME"
           echo "Committed. New HEAD: $(git rev-parse HEAD)"
 
           # Check if remote branch has moved beyond the original PR head
-          echo "Fetching latest from origin/${{ github.event.pull_request.head.ref }}..."
-          git fetch origin ${{ github.event.pull_request.head.ref }}
-          REMOTE_HEAD=$(git rev-parse origin/${{ github.event.pull_request.head.ref }})
+          echo "Fetching latest from origin/$BRANCH_NAME..."
+          git fetch origin $BRANCH_NAME
+          REMOTE_HEAD=$(git rev-parse origin/$BRANCH_NAME)
           echo "Remote HEAD: $REMOTE_HEAD"
 
-          if [ "${{ github.event.pull_request.head.sha }}" != "$REMOTE_HEAD" ]; then
-            echo "Branch has new commits (original: ${{ github.event.pull_request.head.sha }}, remote: $REMOTE_HEAD), skipping push to avoid conflicts"
+          if [ "$ORIGINAL_PR_HEAD" != "$REMOTE_HEAD" ]; then
+            echo "Branch has new commits (original: $ORIGINAL_PR_HEAD, remote: $REMOTE_HEAD), skipping push to avoid conflicts"
             exit 0
           fi
 
           echo "No conflicts detected, pushing..."
-          git push origin HEAD:${{ github.event.pull_request.head.ref }}
+          git push origin HEAD:$BRANCH_NAME --force-with-lease=$BRANCH_NAME:$ORIGINAL_PR_HEAD
