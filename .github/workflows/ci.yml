@@ -488,5 +488,12 @@ jobs:
             echo "No changes to commit"
             exit 0
           fi
-          git pull --rebase origin ${{ github.event.pull_request.head.ref }}
+
+          # Check if we're still on the latest commit
+          git fetch origin ${{ github.event.pull_request.head.ref }}
+          if [ "$(git rev-parse HEAD~1)" != "$(git rev-parse origin/${{ github.event.pull_request.head.ref }})" ]; then
+            echo "Branch has new commits, skipping push to avoid conflicts"
+            exit 0
+          fi
+
           git push origin HEAD:${{ github.event.pull_request.head.ref }}
