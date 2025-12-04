@@ -503,7 +503,7 @@ jobs:
           echo "Fetching latest from origin/$BRANCH_NAME..."
           git fetch origin $BRANCH_NAME
           REMOTE_HEAD=$(git rev-parse origin/$BRANCH_NAME)
-          echo "Remote HEAD: $REMOTE_HEAD"
+          echo "Remote HEAD: $REMOTE_HEAD" 
 
           if [ "$ORIGINAL_PR_HEAD" != "$REMOTE_HEAD" ]; then
             echo "Branch has new commits (original: $ORIGINAL_PR_HEAD, remote: $REMOTE_HEAD), skipping push to avoid conflicts"
