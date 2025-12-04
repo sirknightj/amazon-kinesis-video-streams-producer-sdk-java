@@ -438,7 +438,11 @@ jobs:
       - name: Check for jni update request in commit message
         id: check-commit
         run: |
-          if git log -1 --pretty=%B | grep -qi "please update jni"; then
+          COMMIT_SHA="${{ github.event.pull_request.head.sha }}"
+          COMMIT_MSG=$(git log -1 --pretty=%B "$COMMIT_SHA")
+          echo "Checking commit SHA: $COMMIT_SHA"
+          echo "Commit message: '$COMMIT_MSG'"
+          if echo "$COMMIT_MSG" | grep -qi "please update jni"; then
             echo "has_request=true" >> $GITHUB_OUTPUT
             echo "Detected 'please update jni' in commit message"
           else
