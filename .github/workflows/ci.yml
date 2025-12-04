@@ -435,28 +435,26 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Check for jni-update label
-        id: check-label
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - name: Check for jni update request in commit message
+        id: check-commit
         run: |
-          if gh pr view ${{ github.event.number }} --json labels --jq '.labels[].name' | grep -q "jni-update"; then
-            echo "has_label=true" >> $GITHUB_OUTPUT
-            echo "Detected jni-update label"
+          if echo "${{ github.event.pull_request.head.commit.message }}" | grep -qi "please update jni"; then
+            echo "has_request=true" >> $GITHUB_OUTPUT
+            echo "Detected 'please update jni' in commit message"
           else
-            echo "has_label=false" >> $GITHUB_OUTPUT
-            echo "Did not detect jni-update label"
+            echo "has_request=false" >> $GITHUB_OUTPUT
+            echo "Did not detect 'please update jni' in commit message"
           fi
 
       - name: Download JNI Libraries
-        if: steps.check-label.outputs.has_label == 'true'
+        if: steps.check-commit.outputs.has_request == 'true'
         uses: actions/download-artifact@v4
         with:
           pattern: jni-library-*
           path: temp-jni
 
       - name: Move JNI files to correct locations
-        if: steps.check-label.outputs.has_label == 'true'
+        if: steps.check-commit.outputs.has_request == 'true'
         run: |
           mkdir -p src/main/resources/lib/{mac,mac-m1,windows,ubuntu}
 
@@ -471,7 +469,7 @@ jobs:
           find temp-jni -path "*ubuntu*" -name "*.so" -exec cp {} src/main/resources/lib/ubuntu/libKinesisVideoProducerJNI.so \;
 
       - name: Generate MD5 sums
-        if: steps.check-label.outputs.has_label == 'true'
+        if: steps.check-commit.outputs.has_request == 'true'
         run: |
           for dir in src/main/resources/lib/*/; do
             if [ -f "$dir"/*.dll ] || [ -f "$dir"/*.dylib ] || [ -f "$dir"/*.so ]; then
@@ -480,14 +478,14 @@ jobs:
           done
 
       - name: Commit and push if changed and is latest commit
-        if: steps.check-label.outputs.has_label == 'true'
+        if: steps.check-commit.outputs.has_request == 'true'
         run: |
           git config --local user.email "github-actions@github.com"
           git config --local user.name "github-actions"
 
           ORIGINAL_PR_HEAD="${{ github.event.pull_request.head.sha }}"
           BRANCH_NAME="${{ github.event.pull_request.head.ref }}"
-          
+
           echo "Original PR head SHA: $ORIGINAL_PR_HEAD"
           echo "Current HEAD: $(git rev-parse HEAD)"
 
@@ -498,7 +496,7 @@ jobs:
           fi
 
           echo "Changes detected, committing..."
-          git commit -m "Update JNI libraries using $BRANCH_NAME"
+          git commit -m "Update JNI libraries using $ORIGINAL_PR_HEAD"
           echo "Committed. New HEAD: $(git rev-parse HEAD)"
 
           # Check if remote branch has moved beyond the original PR head
