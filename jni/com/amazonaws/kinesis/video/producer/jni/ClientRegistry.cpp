@@ -7,6 +7,7 @@ ClientRegistry& ClientRegistry::getInstance() {
 
 SIZE_T ClientRegistry::getCurrentNumberClients() {
     std::lock_guard<std::mutex> lock(mutex_);
+
     return clients_.size();
 }
 
